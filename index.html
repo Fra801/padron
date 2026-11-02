@@ -53,6 +53,8 @@
   .f input,.f select,.f textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;outline:0;background:#fff;color:var(--ink)}
   .f input:focus,.f select:focus,.f textarea:focus{border-color:var(--brand);box-shadow:0 0 0 4px rgba(37,99,235,.12)}
   .hint{font-size:12px;color:var(--soft);margin:0 0 12px}
+  .linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--brand-d);cursor:pointer;text-decoration:underline}
+  .linkbtn:disabled{opacity:.5;cursor:default;text-decoration:none}
   .sep{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--soft);margin:16px 0 10px}
   .adv-actions{display:flex;gap:8px;margin-top:16px}
   .adv-actions .btn{flex:1}
@@ -151,10 +153,11 @@
         </div>
         <div class="sep">Acotar resultados</div>
         <div class="grid3">
-          <div class="f"><label>Edad desde</label><input id="qEdadMin" type="number" min="0" max="130" inputmode="numeric"></div>
-          <div class="f"><label>Edad hasta</label><input id="qEdadMax" type="number" min="0" max="130" inputmode="numeric"></div>
-          <div class="f"><label>Localidad</label><input id="qLoc" list="locList" autocomplete="off"><datalist id="locList"></datalist></div>
+          <div class="f"><label>Edad desde</label><select id="qEdadMin"></select></div>
+          <div class="f"><label>Edad hasta</label><select id="qEdadMax"></select></div>
+          <div class="f"><label>Localidad</label><select id="qLoc"><option value="">Todas</option></select></div>
         </div>
+        <p class="hint" style="margin-top:10px"><span id="filtrosMsg"></span> <button type="button" class="linkbtn" id="filtrosBtn">Actualizar listas</button></p>
         <div class="adv-actions">
           <button class="btn ghost" id="clearAdv" type="button">Limpiar</button>
           <button class="btn primary" id="advBtn" type="button">Buscar</button>
@@ -219,7 +222,7 @@ onAuthStateChanged(auth, user => {
   $("loginCard").hidden = !!user;
   $("app").hidden = !user;
   $("userBox").hidden = !user;
-  if (user) { $("userMail").textContent = user.email; cargarLocalidades(); }
+  if (user) { $("userMail").textContent = user.email; cargarFiltros(); }
   else { limpiarPantalla(); }
 });
 
@@ -228,14 +231,75 @@ function limpiarPantalla(){
   $("results").innerHTML = ""; $("ficha").innerHTML = "";
 }
 
-/* Lista opcional de localidades para autocompletar (documento meta/localidades { lista: [...] }) */
-async function cargarLocalidades(){
-  try {
-    const s = await getDoc(doc(db, "meta", "localidades"));
-    if (!s.exists()) return;
-    $("locList").innerHTML = (s.data().lista || []).map(l => `<option value="${esc(l)}">`).join("");
-  } catch (_) {}
+/* Filtros: documento meta/filtros { localidades: [...], edadMax: N } */
+const EDAD_MIN_DEFECTO = 18;
+let edadMaxBase = 100;
+
+function llenarEdades(){
+  const opts = n => Array.from({ length: n + 1 }, (_, i) => `<option value="${i}">${i}</option>`).join("");
+  $("qEdadMin").innerHTML = opts(edadMaxBase);
+  $("qEdadMax").innerHTML = opts(edadMaxBase);
+  aplicarDefectos();
 }
+function aplicarDefectos(){
+  $("qEdadMin").value = String(EDAD_MIN_DEFECTO);
+  $("qEdadMax").value = String(edadMaxBase);
+  $("qLoc").value = "";
+}
+async function cargarFiltros(){
+  llenarEdades();
+  try {
+    const s = await getDoc(doc(db, "meta", "filtros"));
+    if (!s.exists()){
+      $("filtrosMsg").textContent = "Todavía no se generaron las listas de localidades y edad máxima.";
+      $("filtrosBtn").textContent = "Generar ahora";
+      return;
+    }
+    const d = s.data();
+    if (d.edadMax){ edadMaxBase = Number(d.edadMax); llenarEdades(); }
+    const locs = d.localidades || [];
+    $("qLoc").innerHTML = '<option value="">Todas</option>' +
+      locs.map(l => `<option value="${esc(l)}">${esc(String(l).trim())}</option>`).join("");
+    $("qLoc").value = "";
+    $("filtrosMsg").textContent = `${locs.length} localidades · edad máx. ${edadMaxBase}.`;
+    $("filtrosBtn").textContent = "Actualizar listas";
+  } catch (e) {
+    $("filtrosMsg").textContent = "No se pudieron cargar las listas.";
+    $("filtrosBtn").textContent = "Generar ahora";
+  }
+}
+
+/* Genera meta/filtros directamente desde Firestore (sin planillas ni scripts externos):
+   - Edad máxima: 1 lectura (primer documento ordenado por edad descendente, ignorando > 120).
+   - Localidades: salta de una localidad a la siguiente con consultas de 1 documento,
+     así que cuesta ~1 lectura por localidad distinta (no por persona). */
+$("filtrosBtn").onclick = async () => {
+  const btn = $("filtrosBtn"), msg = $("filtrosMsg");
+  btn.disabled = true;
+  try {
+    msg.textContent = "Calculando edad máxima…";
+    const se = await getDocs(query(collection(db, COLECCION), where("edad", "<=", 120), orderBy("edad", "desc"), limit(1)));
+    const edadMax = se.empty ? 100 : Number(se.docs[0].data().edad) || 100;
+
+    const localidades = [];
+    let ultima = "";
+    while (localidades.length < 5000){
+      const s = await getDocs(query(collection(db, COLECCION), where("localidad", ">", ultima), orderBy("localidad"), limit(1)));
+      if (s.empty) break;
+      ultima = s.docs[0].data().localidad;
+      localidades.push(ultima);
+      msg.textContent = `Buscando localidades… ${localidades.length}`;
+    }
+
+    msg.textContent = "Guardando…";
+    await setDoc(doc(db, "meta", "filtros"), { edadMax, localidades });
+    await cargarFiltros();
+  } catch (e) {
+    msg.textContent = "Error: " + (e.message || e);
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 /* ---------- Búsqueda avanzada (toggle) ---------- */
 $("advToggle").onclick = () => {
@@ -243,7 +307,8 @@ $("advToggle").onclick = () => {
   $("adv").classList.toggle("show");
 };
 $("clearAdv").onclick = () => {
-  ["qApellido","qNombre","qEdadMin","qEdadMax","qLoc"].forEach(i => $(i).value = "");
+  $("qApellido").value = ""; $("qNombre").value = "";
+  aplicarDefectos();
   $("advErr").textContent = "";
 };
 
@@ -253,8 +318,9 @@ function mapDoc(d){
   KEYS.forEach(k => r[k] = x[k] ?? "");
   return r;
 }
-async function porPrefijo(campo, prefijo, max){
-  const q = query(collection(db, COLECCION),
+async function porPrefijo(campo, prefijo, max, localidad){
+  const filtrosLoc = localidad ? [where("localidad", "==", localidad)] : [];
+  const q = query(collection(db, COLECCION), ...filtrosLoc,
     where(campo, ">=", prefijo), where(campo, "<=", prefijo + "\uf8ff"),
     orderBy(campo), limit(max));
   const snap = await getDocs(q);
@@ -273,20 +339,19 @@ async function buscarDNI(){
 
 async function buscarAvanzada(){
   const ap = up($("qApellido").value), no = up($("qNombre").value);
-  const loc = up($("qLoc").value);
+  const loc = $("qLoc").value;
   const eMin = $("qEdadMin").value !== "" ? parseInt($("qEdadMin").value, 10) : -Infinity;
   const eMax = $("qEdadMax").value !== "" ? parseInt($("qEdadMax").value, 10) :  Infinity;
   $("advErr").textContent = "";
   if (!ap && !no){ $("advErr").textContent = "Completá al menos el apellido o el nombre."; return; }
 
   mostrarCargando();
-  const TOPE = 500;
+  const TOPE = 1000;
   try {
     // Se consulta por el campo que haya cargado; el resto se filtra acá.
-    let rows = ap ? await porPrefijo("apellido", ap, TOPE) : await porPrefijo("nombre", no, TOPE);
+    let rows = ap ? await porPrefijo("apellido", ap, TOPE, loc) : await porPrefijo("nombre", no, TOPE, loc);
     const llegoAlTope = rows.length >= TOPE;
     if (ap && no) rows = rows.filter(r => up(r.nombre).startsWith(no));
-    if (loc) rows = rows.filter(r => up(r.localidad).includes(loc));
     if (eMin !== -Infinity || eMax !== Infinity){
       rows = rows.filter(r => { const e = Number(r.edad); return !isNaN(e) && e >= eMin && e <= eMax; });
     }
@@ -307,6 +372,15 @@ function mostrarCargando(){
   $("results").innerHTML = '<div class="empty">Buscando…</div>';
 }
 function renderError(e){
+  const msg = String(e.message || e);
+  const m = msg.match(/https:\/\/console\.firebase\.google\.com\S+/);
+  if (e.code === "failed-precondition" && m){
+    const url = m[0].replace(/[.,)]+$/, "");
+    $("results").innerHTML = '<div class="empty">Esta combinación de búsqueda necesita un índice (se crea una sola vez).<br><br>' +
+      '<a class="btn primary" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(url) + '">Crear índice</a><br><br>' +
+      'Tocá el botón, confirmá <b>Crear</b> en Firebase y esperá 1–2 minutos hasta que figure como habilitado. Después repetí la búsqueda.</div>';
+    return;
+  }
   $("results").innerHTML = '<div class="empty" style="color:var(--err)">Error: ' + esc(e.message || e) + '</div>';
 }
 function renderResultados(rows, { max, aviso }){

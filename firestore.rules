@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Solo estos mails pueden leer/escribir. Agregá o quitá los que necesites.
+    function autorizado() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'francasviedma@gmail.com'
+        ];
+    }
+
+    match /personas/{id} {
+      allow read, write: if autorizado();
+    }
+
+    match /meta/{id} {
+      allow read, write: if autorizado();
+    }
+
+    // Todo lo demás, cerrado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
