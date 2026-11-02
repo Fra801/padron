@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registro de Personas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3f5f9; --panel:#fff; --border:#e2e8f0; --ink:#0f172a; --soft:#64748b;
+    --brand:#2563eb; --brand-d:#1d4ed8; --brand-soft:#eff4ff; --navy:#0f2447;
+    --ok:#15803d; --err:#b91c1c; --r:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+  .hero{background:linear-gradient(135deg,#0f2447 0%,#1e3a8a 55%,#2563eb 100%);padding:28px 16px 90px;color:#fff}
+  .hero-in{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.15);display:grid;place-items:center;font-weight:700;backdrop-filter:blur(4px)}
+  .brand h1{font-size:18px;margin:0;font-weight:700}
+  .brand p{margin:2px 0 0;font-size:12px;opacity:.75}
+  .user{font-size:12px;text-align:right;opacity:.9}
+  .user button{margin-top:4px;background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;cursor:pointer}
+  .wrap{max-width:720px;margin:-64px auto 60px;padding:0 14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 10px 30px rgba(15,36,71,.10);padding:18px}
+  .card + .card{margin-top:14px}
+
+  /* Buscador principal */
+  .searchbar{display:flex;gap:8px}
+  .inp{flex:1;display:flex;align-items:center;gap:10px;border:1.5px solid var(--border);border-radius:12px;padding:0 14px;background:#fff;transition:.15s}
+  .inp:focus-within{border-color:var(--brand);box-shadow:0 0 0 4px rgba(37,99,235,.12)}
+  .inp svg{color:var(--soft);flex:none}
+  .inp input{border:0;outline:0;background:transparent;font:inherit;font-size:16px;padding:14px 0;width:100%}
+  .btn{border:0;border-radius:12px;padding:0 20px;font:inherit;font-weight:600;font-size:14px;cursor:pointer;transition:.15s;min-height:46px}
+  .btn.primary{background:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-d)}
+  .btn.light{background:var(--brand-soft);color:var(--brand-d)}
+  .btn.light:hover{background:#dfe9ff}
+  .btn.ghost{background:#fff;border:1px solid var(--border);color:var(--ink)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .toggle{display:flex;align-items:center;gap:6px;margin-top:12px;background:none;border:0;color:var(--brand-d);font:inherit;font-weight:600;font-size:13px;cursor:pointer;padding:4px 0}
+  .toggle .chev{transition:transform .2s}
+  .toggle.open .chev{transform:rotate(180deg)}
+
+  /* Búsqueda avanzada */
+  .adv{display:none;margin-top:14px;padding-top:16px;border-top:1px dashed var(--border)}
+  .adv.show{display:block;animation:in .2s ease-out}
+  @keyframes in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .f label{display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--soft);margin-bottom:5px}
+  .f input,.f select,.f textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;outline:0;background:#fff;color:var(--ink)}
+  .f input:focus,.f select:focus,.f textarea:focus{border-color:var(--brand);box-shadow:0 0 0 4px rgba(37,99,235,.12)}
+  .hint{font-size:12px;color:var(--soft);margin:0 0 12px}
+  .sep{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--soft);margin:16px 0 10px}
+  .adv-actions{display:flex;gap:8px;margin-top:16px}
+  .adv-actions .btn{flex:1}
+
+  /* Resultados */
+  .res-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;color:var(--soft)}
+  .res-head b{color:var(--ink)}
+  .item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 14px;border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:.12s;background:#fff}
+  .item + .item{margin-top:8px}
+  .item:hover{border-color:var(--brand);background:var(--brand-soft)}
+  .item .n{font-weight:600;font-size:14px}
+  .item .m{font-size:12px;color:var(--soft);margin-top:2px}
+  .tag{font-size:11.5px;font-weight:600;background:var(--brand-soft);color:var(--brand-d);border-radius:8px;padding:4px 9px;white-space:nowrap}
+  .empty{text-align:center;color:var(--soft);font-size:14px;padding:22px 8px}
+  .warn{font-size:12px;background:#fff7e6;color:#8a5a11;border-radius:10px;padding:9px 12px;margin-bottom:10px}
+
+  /* Ficha */
+  .ficha-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:16px}
+  .ficha-top h2{margin:0;font-size:20px;line-height:1.25;word-break:break-word}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .chip{font-size:11.5px;font-weight:600;border-radius:8px;padding:4px 9px;background:var(--brand-soft);color:var(--brand-d)}
+  .chip.new{background:#fff3dc;color:#8a5a11}
+  .chip.saved{background:#e3f6ea;color:var(--ok)}
+  .data{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px}
+  .data .full{grid-column:1/-1}
+  .data .v{font-size:15px;word-break:break-word}
+  .data .v.empty{color:#b6c0cd;font-style:italic}
+  .data label{display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--soft);margin-bottom:3px}
+  .actions{display:flex;gap:8px;margin-top:20px}
+  .actions .btn{flex:1}
+  .status{margin-top:12px;text-align:center;font-size:13px;min-height:18px}
+  .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+  .close{background:none;border:0;font-size:22px;line-height:1;color:var(--soft);cursor:pointer}
+
+  /* Login */
+  .login{text-align:center;padding:28px 10px}
+  .login h2{margin:0 0 6px;font-size:18px}
+  .login p{color:var(--soft);font-size:14px;margin:0 0 18px}
+  .gbtn{display:inline-flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px 20px;font:inherit;font-weight:600;font-size:14px;cursor:pointer}
+  .gbtn:hover{background:#f8fafc}
+  [hidden]{display:none!important}
+  @media(max-width:520px){.grid3{grid-template-columns:1fr 1fr}.grid3 .f:last-child{grid-column:1/-1}.data{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-in">
+    <div class="brand">
+      <div class="logo">RP</div>
+      <div><h1>Registro de Personas</h1><p>Consulta y carga de datos</p></div>
+    </div>
+    <div class="user" id="userBox" hidden>
+      <div id="userMail"></div>
+      <button id="logoutBtn">Salir</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- LOGIN -->
+  <section class="card" id="loginCard">
+    <div class="login">
+      <h2>Acceso restringido</h2>
+      <p>Iniciá sesión con tu cuenta autorizada para consultar el padrón.</p>
+      <button class="gbtn" id="loginBtn">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.5l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        Continuar con Google
+      </button>
+      <div class="status err" id="loginErr"></div>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <div id="app" hidden>
+    <section class="card">
+      <div class="searchbar">
+        <label class="inp">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="dni" type="text" inputmode="numeric" placeholder="Buscar por DNI" autocomplete="off">
+        </label>
+        <button class="btn primary" id="dniBtn">Buscar</button>
+      </div>
+
+      <button class="toggle" id="advToggle" type="button">
+        Búsqueda avanzada
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      <div class="adv" id="adv">
+        <p class="hint">Completá al menos <b>apellido</b> o <b>nombre</b>. Edad y localidad sirven para acotar.</p>
+        <div class="grid2">
+          <div class="f"><label>Apellido/s</label><input id="qApellido" autocomplete="off"></div>
+          <div class="f"><label>Nombre/s</label><input id="qNombre" autocomplete="off"></div>
+        </div>
+        <div class="sep">Acotar resultados</div>
+        <div class="grid3">
+          <div class="f"><label>Edad desde</label><input id="qEdadMin" type="number" min="0" max="130" inputmode="numeric"></div>
+          <div class="f"><label>Edad hasta</label><input id="qEdadMax" type="number" min="0" max="130" inputmode="numeric"></div>
+          <div class="f"><label>Localidad</label><input id="qLoc" list="locList" autocomplete="off"><datalist id="locList"></datalist></div>
+        </div>
+        <div class="adv-actions">
+          <button class="btn ghost" id="clearAdv" type="button">Limpiar</button>
+          <button class="btn primary" id="advBtn" type="button">Buscar</button>
+        </div>
+        <div class="status err" id="advErr"></div>
+      </div>
+    </section>
+
+    <section class="card" id="resultsCard" hidden>
+      <div id="results"></div>
+    </section>
+
+    <section class="card" id="fichaCard" hidden>
+      <div id="ficha"></div>
+    </section>
+
+    <div style="margin-top:14px;text-align:center">
+      <button class="btn light" id="newBtn" style="width:100%">+ Nuevo registro</button>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, addDoc, setDoc }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+/* ====== 1) PEGÁ ACÁ TU CONFIG DE FIREBASE (Configuración del proyecto > Tus apps > Web) ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAg2qYW9ZygOk65W4FNyat4TEXJ2wy_RFU",
+  authDomain: "padron-a870e.firebaseapp.com",
+  projectId: "padron-a870e",
+  storageBucket: "padron-a870e.firebasestorage.app",
+  messagingSenderId: "152374997706",
+  appId: "1:152374997706:web:aa557f8e323b5c3291ba33"
+};
+/* ========================================================================================== */
+
+const COLECCION = "personas";
+const TIPOS_DOC = ["DNI","CUIT","CUIL","LC","LE","Pasaporte","Otro"];
+const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","obs"];
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const up = s => String(s || "").trim().toUpperCase();
+
+/* ---------- Login ---------- */
+$("loginBtn").onclick = async () => {
+  $("loginErr").textContent = "";
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) { $("loginErr").textContent = "No se pudo iniciar sesión: " + (e.code || e.message); }
+};
+$("logoutBtn").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, user => {
+  $("loginCard").hidden = !!user;
+  $("app").hidden = !user;
+  $("userBox").hidden = !user;
+  if (user) { $("userMail").textContent = user.email; cargarLocalidades(); }
+  else { limpiarPantalla(); }
+});
+
+function limpiarPantalla(){
+  $("resultsCard").hidden = true; $("fichaCard").hidden = true;
+  $("results").innerHTML = ""; $("ficha").innerHTML = "";
+}
+
+/* Lista opcional de localidades para autocompletar (documento meta/localidades { lista: [...] }) */
+async function cargarLocalidades(){
+  try {
+    const s = await getDoc(doc(db, "meta", "localidades"));
+    if (!s.exists()) return;
+    $("locList").innerHTML = (s.data().lista || []).map(l => `<option value="${esc(l)}">`).join("");
+  } catch (_) {}
+}
+
+/* ---------- Búsqueda avanzada (toggle) ---------- */
+$("advToggle").onclick = () => {
+  $("advToggle").classList.toggle("open");
+  $("adv").classList.toggle("show");
+};
+$("clearAdv").onclick = () => {
+  ["qApellido","qNombre","qEdadMin","qEdadMax","qLoc"].forEach(i => $(i).value = "");
+  $("advErr").textContent = "";
+};
+
+/* ---------- Consultas ---------- */
+function mapDoc(d){
+  const x = d.data(), r = { id: d.id };
+  KEYS.forEach(k => r[k] = x[k] ?? "");
+  return r;
+}
+async function porPrefijo(campo, prefijo, max){
+  const q = query(collection(db, COLECCION),
+    where(campo, ">=", prefijo), where(campo, "<=", prefijo + "\uf8ff"),
+    orderBy(campo), limit(max));
+  const snap = await getDocs(q);
+  return snap.docs.map(mapDoc);
+}
+
+async function buscarDNI(){
+  const v = $("dni").value.replace(/[.\s-]/g, "");
+  if (!v) return;
+  mostrarCargando();
+  try {
+    const rows = await porPrefijo("numDoc", v, 100);
+    renderResultados(rows, { max: 100 });
+  } catch (e) { renderError(e); }
+}
+
+async function buscarAvanzada(){
+  const ap = up($("qApellido").value), no = up($("qNombre").value);
+  const loc = up($("qLoc").value);
+  const eMin = $("qEdadMin").value !== "" ? parseInt($("qEdadMin").value, 10) : -Infinity;
+  const eMax = $("qEdadMax").value !== "" ? parseInt($("qEdadMax").value, 10) :  Infinity;
+  $("advErr").textContent = "";
+  if (!ap && !no){ $("advErr").textContent = "Completá al menos el apellido o el nombre."; return; }
+
+  mostrarCargando();
+  const TOPE = 500;
+  try {
+    // Se consulta por el campo que haya cargado; el resto se filtra acá.
+    let rows = ap ? await porPrefijo("apellido", ap, TOPE) : await porPrefijo("nombre", no, TOPE);
+    const llegoAlTope = rows.length >= TOPE;
+    if (ap && no) rows = rows.filter(r => up(r.nombre).startsWith(no));
+    if (loc) rows = rows.filter(r => up(r.localidad).includes(loc));
+    if (eMin !== -Infinity || eMax !== Infinity){
+      rows = rows.filter(r => { const e = Number(r.edad); return !isNaN(e) && e >= eMin && e <= eMax; });
+    }
+    renderResultados(rows, { max: 100, aviso: llegoAlTope ? "Hay muchas coincidencias: afiná la búsqueda para ver todas." : "" });
+  } catch (e) { renderError(e); }
+}
+
+$("dniBtn").onclick = buscarDNI;
+$("dni").addEventListener("keydown", e => { if (e.key === "Enter") buscarDNI(); });
+$("advBtn").onclick = buscarAvanzada;
+["qApellido","qNombre","qEdadMin","qEdadMax","qLoc"].forEach(i =>
+  $(i).addEventListener("keydown", e => { if (e.key === "Enter") buscarAvanzada(); }));
+
+/* ---------- Render resultados ---------- */
+function mostrarCargando(){
+  $("fichaCard").hidden = true;
+  $("resultsCard").hidden = false;
+  $("results").innerHTML = '<div class="empty">Buscando…</div>';
+}
+function renderError(e){
+  $("results").innerHTML = '<div class="empty" style="color:var(--err)">Error: ' + esc(e.message || e) + '</div>';
+}
+function renderResultados(rows, { max, aviso }){
+  $("resultsCard").hidden = false;
+  if (!rows.length){ $("results").innerHTML = '<div class="empty">Sin coincidencias.</div>'; return; }
+  const shown = rows.slice(0, max);
+  let h = `<div class="res-head"><span><b>${shown.length}</b> ${shown.length === 1 ? "coincidencia" : "coincidencias"}</span></div>`;
+  if (aviso) h += `<div class="warn">${esc(aviso)}</div>`;
+  h += shown.map(r => `
+    <div class="item" data-id="${esc(r.id)}">
+      <div>
+        <div class="n">${esc([r.apellido, r.nombre].filter(Boolean).join(", ") || "(sin nombre)")}</div>
+        <div class="m">${esc([r.edad !== "" ? r.edad + " años" : "", r.localidad].filter(Boolean).join(" · "))}</div>
+      </div>
+      <span class="tag">${esc([r.tipoDoc, r.numDoc].filter(Boolean).join(" "))}</span>
+    </div>`).join("");
+  $("results").innerHTML = h;
+  $("results").querySelectorAll(".item").forEach(el => el.onclick = () => abrirRegistro(el.dataset.id));
+}
+
+/* ---------- Ficha ---------- */
+let actual = null;
+
+async function abrirRegistro(id){
+  try {
+    const s = await getDoc(doc(db, COLECCION, id));
+    if (!s.exists()) throw new Error("No se encontró el registro.");
+    actual = mapDoc(s);
+    renderFicha(false);
+    $("fichaCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { renderError(e); }
+}
+
+$("newBtn").onclick = () => {
+  actual = { id: null, apellido:"", nombre:"", tipoDoc:"DNI", numDoc:"", fnac:"", edad:"",
+             domicilio:"", localidad:"", depto:"", provincia:"", profesion:"", obs:"" };
+  renderFicha(true);
+  $("fichaCard").scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
+function campo(key, label, editando, opts = {}){
+  const cls = opts.full ? "f full" : "f";
+  if (!editando){
+    const v = actual[key];
+    return `<div class="${opts.full ? "full" : ""}"><label>${label}</label><div class="v ${v !== "" ? "" : "empty"}">${v !== "" ? esc(v) : "Sin dato"}</div></div>`;
+  }
+  if (key === "tipoDoc"){
+    return `<div class="${cls}"><label>${label}</label><select data-key="tipoDoc">${
+      TIPOS_DOC.map(t => `<option ${((actual.tipoDoc || "DNI") === t) ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
+  }
+  if (opts.area) return `<div class="${cls}"><label>${label}</label><textarea rows="2" data-key="${key}">${esc(actual[key])}</textarea></div>`;
+  return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(actual[key])}"></div>`;
+}
+
+function renderFicha(editando){
+  const nombre = [actual.apellido, actual.nombre].filter(Boolean).join(", ") || "Nuevo registro";
+  $("resultsCard").hidden = true;
+  $("fichaCard").hidden = false;
+  $("ficha").innerHTML = `
+    <div class="ficha-top">
+      <div>
+        <h2>${esc(nombre)}</h2>
+        <div class="chips">
+          ${(actual.tipoDoc || actual.numDoc) ? `<span class="chip">${esc([actual.tipoDoc, actual.numDoc].filter(Boolean).join(" "))}</span>` : ""}
+          <span class="chip ${actual.id ? "saved" : "new"}">${actual.id ? "Registrado" : "Nuevo"}</span>
+        </div>
+      </div>
+      <button class="close" id="cerrarFicha" title="Cerrar">×</button>
+    </div>
+    <div class="data">
+      ${campo("apellido","Apellido/s",editando)}
+      ${campo("nombre","Nombre/s",editando)}
+      ${campo("tipoDoc","Tipo de doc.",editando)}
+      ${campo("numDoc","N° de doc.",editando)}
+      ${campo("fnac","Fec. de nac. (dd/mm/aaaa)",editando)}
+      ${campo("edad","Edad",editando)}
+      ${campo("domicilio","Domicilio",editando,{full:true})}
+      ${campo("localidad","Localidad",editando)}
+      ${campo("depto","Departamento",editando)}
+      ${campo("provincia","Provincia",editando)}
+      ${campo("profesion","Profesión",editando)}
+      ${campo("obs","Observaciones",editando,{full:true, area:true})}
+    </div>
+    <div class="actions">
+      ${editando
+        ? `<button class="btn ghost" id="cancelarBtn">Cancelar</button><button class="btn primary" id="guardarBtn">Guardar</button>`
+        : `<button class="btn primary" id="editarBtn">Editar</button>`}
+    </div>
+    <div class="status" id="fstatus"></div>`;
+
+  $("cerrarFicha").onclick = () => { $("fichaCard").hidden = true; actual = null; };
+  if (editando){
+    $("cancelarBtn").onclick = () => actual.id ? abrirRegistro(actual.id) : ($("fichaCard").hidden = true);
+    $("guardarBtn").onclick = guardar;
+    const f = $("ficha").querySelector('[data-key="fnac"]');
+    f.addEventListener("change", () => {
+      const e = calcularEdad(f.value);
+      if (e !== "") $("ficha").querySelector('[data-key="edad"]').value = e;
+    });
+  } else {
+    $("editarBtn").onclick = () => renderFicha(true);
+  }
+}
+
+function calcularEdad(str){
+  const p = String(str || "").trim().split(/[\/\-]/);
+  if (p.length !== 3) return "";
+  const [d, m, y] = p.map(n => parseInt(n, 10));
+  if (!d || !m || !y) return "";
+  const n = new Date(y, m - 1, d); if (isNaN(n)) return "";
+  const h = new Date();
+  let e = h.getFullYear() - n.getFullYear();
+  const md = h.getMonth() - n.getMonth();
+  if (md < 0 || (md === 0 && h.getDate() < n.getDate())) e--;
+  return e >= 0 ? String(e) : "";
+}
+
+async function guardar(){
+  const st = $("fstatus"); st.className = "status";
+  const rec = {};
+  $("ficha").querySelectorAll("[data-key]").forEach(i => rec[i.dataset.key] = i.value.trim());
+  if (!rec.apellido) return setSt("Falta el apellido.", "err");
+  if (!rec.nombre)   return setSt("Falta el nombre.", "err");
+  if (!rec.numDoc)   return setSt("Falta el número de documento.", "err");
+  if (!rec.edad && rec.fnac) rec.edad = calcularEdad(rec.fnac);
+
+  // Mantiene el estilo de la base: texto en mayúsculas, edad numérica.
+  const data = {};
+  KEYS.forEach(k => {
+    if (k === "edad"){ const n = parseInt(rec.edad, 10); data.edad = isNaN(n) ? 0 : n; }
+    else if (["apellido","nombre","localidad","depto","provincia","domicilio","profesion"].includes(k)) data[k] = (rec[k] || "").toUpperCase();
+    else data[k] = rec[k] || "";
+  });
+
+  $("guardarBtn").disabled = true; setSt("Guardando…", "");
+  try {
+    if (actual.id){
+      await setDoc(doc(db, COLECCION, actual.id), data);
+      await abrirRegistro(actual.id);
+      $("fstatus").textContent = "Registro actualizado."; $("fstatus").className = "status ok";
+    } else {
+      const dup = (await porPrefijo("numDoc", data.numDoc, 50))
+        .find(r => String(r.numDoc) === data.numDoc && String(r.tipoDoc).toLowerCase() === data.tipoDoc.toLowerCase());
+      if (dup){ $("guardarBtn").disabled = false; return setSt("Ya existe un registro con ese documento.", "err"); }
+      const ref = await addDoc(collection(db, COLECCION), data);
+      await abrirRegistro(ref.id);
+      $("fstatus").textContent = "Registro creado."; $("fstatus").className = "status ok";
+    }
+  } catch (e) {
+    $("guardarBtn").disabled = false;
+    setSt("Error: " + (e.message || e), "err");
+  }
+  function setSt(m, k){ st.textContent = m; st.className = "status " + k; }
+}
+</script>
+</body>
+</html>
