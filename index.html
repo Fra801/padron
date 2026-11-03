@@ -184,7 +184,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, addDoc, setDoc }
+import { initializeFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, addDoc, setDoc }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 /* ====== 1) PEGÁ ACÁ TU CONFIG DE FIREBASE (Configuración del proyecto > Tus apps > Web) ====== */
@@ -204,7 +204,8 @@ const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Detecta solo si la red/navegador bloquea la conexión en streaming y usa long polling (evita que las escrituras queden colgadas).
+const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -291,8 +292,15 @@ $("filtrosBtn").onclick = async () => {
       msg.textContent = `Buscando localidades… ${localidades.length}`;
     }
 
-    msg.textContent = "Guardando…";
-    await setDoc(doc(db, "meta", "filtros"), { edadMax, localidades });
+    msg.textContent = `Guardando ${localidades.length} localidades…`;
+    const guardado = setDoc(doc(db, "meta", "filtros"), { edadMax, localidades });
+    const espera = new Promise((_, rej) => setTimeout(() => rej(new Error("tiempo agotado")), 25000));
+    try { await Promise.race([guardado, espera]); }
+    catch (err) {
+      if (err.message !== "tiempo agotado") throw err;
+      msg.textContent = "El guardado tardó demasiado. Revisá tu conexión y volvé a tocar el botón.";
+      return;
+    }
     await cargarFiltros();
   } catch (e) {
     msg.textContent = "Error: " + (e.message || e);
