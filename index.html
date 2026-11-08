@@ -146,11 +146,12 @@
       </button>
 
       <div class="adv" id="adv">
-        <p class="hint">Completá al menos <b>apellido</b> o <b>nombre</b>. Edad y localidad sirven para acotar.</p>
+        <p class="hint">Completá al menos <b>apellido</b>, <b>nombre</b> o <b>domicilio</b>. Edad y localidad sirven para acotar.</p>
         <div class="grid2">
           <div class="f"><label>Apellido/s</label><input id="qApellido" autocomplete="off"></div>
           <div class="f"><label>Nombre/s</label><input id="qNombre" autocomplete="off"></div>
         </div>
+        <div class="f" style="margin-top:12px"><label>Domicilio (calle y número)</label><input id="qDom" autocomplete="off" placeholder="Escribí cómo empieza la dirección"></div>
         <div class="sep">Acotar resultados</div>
         <div class="grid3">
           <div class="f"><label>Edad desde</label><select id="qEdadMin"></select></div>
@@ -177,6 +178,14 @@
     <div style="margin-top:14px;text-align:center">
       <button class="btn light" id="newBtn" style="width:100%">+ Nuevo registro</button>
     </div>
+
+    <section class="card" style="margin-top:14px">
+      <div class="sep" style="margin-top:0">Importar campos nuevos desde CSV</div>
+      <p class="hint">Columnas: <b>numDoc</b> (y opcional <b>tipoDoc</b>) más <b>apodo, padre, madre, padreVive, madreVive</b>. Cada persona se busca por documento y solo se completan esos campos: el resto del registro no se toca y las celdas vacías se ignoran.</p>
+      <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+      <button class="btn ghost" id="csvBtn" type="button" style="width:100%">Elegir archivo CSV…</button>
+      <div class="status" id="csvStatus" style="text-align:left;white-space:pre-line"></div>
+    </section>
   </div>
 </main>
 
@@ -184,7 +193,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { initializeFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, addDoc, setDoc }
+import { initializeFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, addDoc, setDoc, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 /* ====== 1) PEGÁ ACÁ TU CONFIG DE FIREBASE (Configuración del proyecto > Tus apps > Web) ====== */
@@ -200,7 +209,10 @@ const firebaseConfig = {
 
 const COLECCION = "personas";
 const TIPOS_DOC = ["DNI","CUIT","CUIL","LC","LE","Pasaporte","Otro"];
-const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","obs"];
+const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","apodo","padre","madre","padreVive","madreVive","obs"];
+const CAMPOS_NUEVOS = ["apodo","padre","madre","padreVive","madreVive"];
+const CAMPOS_MAYUS = ["apellido","nombre","localidad","depto","provincia","domicilio","profesion","apodo","padre","madre"];
+const OPC_VIVE = ["SI","NO","NO SABE"];
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -315,7 +327,7 @@ $("advToggle").onclick = () => {
   $("adv").classList.toggle("show");
 };
 $("clearAdv").onclick = () => {
-  $("qApellido").value = ""; $("qNombre").value = "";
+  $("qApellido").value = ""; $("qNombre").value = ""; $("qDom").value = "";
   aplicarDefectos();
   $("advErr").textContent = "";
 };
@@ -346,20 +358,24 @@ async function buscarDNI(){
 }
 
 async function buscarAvanzada(){
-  const ap = up($("qApellido").value), no = up($("qNombre").value);
+  const ap = up($("qApellido").value), no = up($("qNombre").value), dom = up($("qDom").value);
   const loc = $("qLoc").value;
   const eMin = $("qEdadMin").value !== "" ? parseInt($("qEdadMin").value, 10) : -Infinity;
   const eMax = $("qEdadMax").value !== "" ? parseInt($("qEdadMax").value, 10) :  Infinity;
   $("advErr").textContent = "";
-  if (!ap && !no){ $("advErr").textContent = "Completá al menos el apellido o el nombre."; return; }
+  if (!ap && !no && !dom){ $("advErr").textContent = "Completá al menos el apellido, el nombre o el domicilio."; return; }
 
   mostrarCargando();
   const TOPE = 1000;
   try {
-    // Se consulta por el campo que haya cargado; el resto se filtra acá.
-    let rows = ap ? await porPrefijo("apellido", ap, TOPE, loc) : await porPrefijo("nombre", no, TOPE, loc);
+    // Se consulta por el campo que haya cargado (apellido, luego nombre, luego domicilio); el resto se filtra acá.
+    // El domicilio se busca por prefijo: hay que escribirlo como empieza en la base (ej. "BELGRANO 123").
+    let rows = ap ? await porPrefijo("apellido", ap, TOPE, loc)
+             : no ? await porPrefijo("nombre", no, TOPE, loc)
+             :      await porPrefijo("domicilio", dom, TOPE, loc);
     const llegoAlTope = rows.length >= TOPE;
     if (ap && no) rows = rows.filter(r => up(r.nombre).startsWith(no));
+    if (dom && (ap || no)) rows = rows.filter(r => up(r.domicilio).includes(dom));
     if (eMin !== -Infinity || eMax !== Infinity){
       rows = rows.filter(r => { const e = Number(r.edad); return !isNaN(e) && e >= eMin && e <= eMax; });
     }
@@ -370,7 +386,7 @@ async function buscarAvanzada(){
 $("dniBtn").onclick = buscarDNI;
 $("dni").addEventListener("keydown", e => { if (e.key === "Enter") buscarDNI(); });
 $("advBtn").onclick = buscarAvanzada;
-["qApellido","qNombre","qEdadMin","qEdadMax","qLoc"].forEach(i =>
+["qApellido","qNombre","qDom","qEdadMin","qEdadMax","qLoc"].forEach(i =>
   $(i).addEventListener("keydown", e => { if (e.key === "Enter") buscarAvanzada(); }));
 
 /* ---------- Render resultados ---------- */
@@ -400,8 +416,8 @@ function renderResultados(rows, { max, aviso }){
   h += shown.map(r => `
     <div class="item" data-id="${esc(r.id)}">
       <div>
-        <div class="n">${esc([r.apellido, r.nombre].filter(Boolean).join(", ") || "(sin nombre)")}</div>
-        <div class="m">${esc([r.edad !== "" ? r.edad + " años" : "", r.localidad].filter(Boolean).join(" · "))}</div>
+        <div class="n">${esc([r.apellido, r.nombre].filter(Boolean).join(", ") || "(sin nombre)")}${r.apodo ? ` <span style="color:var(--soft);font-weight:500">“${esc(r.apodo)}”</span>` : ""}</div>
+        <div class="m">${esc([r.edad !== "" ? r.edad + " años" : "", r.domicilio, r.localidad].filter(Boolean).join(" · "))}</div>
       </div>
       <span class="tag">${esc([r.tipoDoc, r.numDoc].filter(Boolean).join(" "))}</span>
     </div>`).join("");
@@ -424,7 +440,8 @@ async function abrirRegistro(id){
 
 $("newBtn").onclick = () => {
   actual = { id: null, apellido:"", nombre:"", tipoDoc:"DNI", numDoc:"", fnac:"", edad:"",
-             domicilio:"", localidad:"", depto:"", provincia:"", profesion:"", obs:"" };
+             domicilio:"", localidad:"", depto:"", provincia:"", profesion:"",
+             apodo:"", padre:"", madre:"", padreVive:"", madreVive:"", obs:"" };
   renderFicha(true);
   $("fichaCard").scrollIntoView({ behavior: "smooth", block: "start" });
 };
@@ -438,6 +455,10 @@ function campo(key, label, editando, opts = {}){
   if (key === "tipoDoc"){
     return `<div class="${cls}"><label>${label}</label><select data-key="tipoDoc">${
       TIPOS_DOC.map(t => `<option ${((actual.tipoDoc || "DNI") === t) ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
+  }
+  if (key === "padreVive" || key === "madreVive"){
+    return `<div class="${cls}"><label>${label}</label><select data-key="${key}"><option value="">Sin dato</option>${
+      OPC_VIVE.map(t => `<option ${actual[key] === t ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
   }
   if (opts.area) return `<div class="${cls}"><label>${label}</label><textarea rows="2" data-key="${key}">${esc(actual[key])}</textarea></div>`;
   return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(actual[key])}"></div>`;
@@ -470,6 +491,11 @@ function renderFicha(editando){
       ${campo("depto","Departamento",editando)}
       ${campo("provincia","Provincia",editando)}
       ${campo("profesion","Profesión",editando)}
+      ${campo("apodo","Apodo",editando)}
+      ${campo("padre","Padre",editando)}
+      ${campo("madre","Madre",editando)}
+      ${campo("padreVive","¿Vive el padre?",editando)}
+      ${campo("madreVive","¿Vive la madre?",editando)}
       ${campo("obs","Observaciones",editando,{area:true})}
     </div>
     <div class="actions">
@@ -519,7 +545,7 @@ async function guardar(){
   const data = {};
   KEYS.forEach(k => {
     if (k === "edad"){ const n = parseInt(rec.edad, 10); data.edad = isNaN(n) ? 0 : n; }
-    else if (["apellido","nombre","localidad","depto","provincia","domicilio","profesion"].includes(k)) data[k] = (rec[k] || "").toUpperCase();
+    else if (CAMPOS_MAYUS.includes(k)) data[k] = (rec[k] || "").toUpperCase();
     else data[k] = rec[k] || "";
   });
 
@@ -543,6 +569,145 @@ async function guardar(){
   }
   function setSt(m, k){ st.textContent = m; st.className = "status " + k; }
 }
+
+/* ---------- Importar CSV (solo los campos nuevos) ---------- */
+const sinAcentos = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+const normHeader = s => sinAcentos(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+const ALIAS = {
+  numDoc:    ["numdoc","dni","documento","nrodoc","numerodoc","numerodedocumento","ndoc","ndedoc","nrodedocumento"],
+  tipoDoc:   ["tipodoc","tipodedoc","tipodocumento","tipodedocumento"],
+  apodo:     ["apodo","alias"],
+  padre:     ["padre","nombredelpadre","nombrepadre"],
+  madre:     ["madre","nombredelamadre","nombremadre"],
+  padreVive: ["padrevive","vivepadre","viveelpadre"],
+  madreVive: ["madrevive","vivemadre","vivelamadre"]
+};
+
+// Lee CSV con separador ; , o tabulación (Excel en español usa ;) y comillas.
+function leerCSV(texto){
+  texto = texto.replace(/^﻿/, "");
+  const primera = texto.split(/\r?\n/, 1)[0] || "";
+  const cuenta = c => primera.split(c).length - 1;
+  const sep = [";", ",", "\t"].sort((a, b) => cuenta(b) - cuenta(a))[0];
+  const filas = []; let fila = [], celda = "", comillas = false;
+  for (let i = 0; i < texto.length; i++){
+    const c = texto[i];
+    if (comillas){
+      if (c === '"'){ if (texto[i + 1] === '"'){ celda += '"'; i++; } else comillas = false; }
+      else celda += c;
+    } else if (c === '"') comillas = true;
+    else if (c === sep){ fila.push(celda); celda = ""; }
+    else if (c === "\n" || c === "\r"){
+      if (c === "\r" && texto[i + 1] === "\n") i++;
+      fila.push(celda); celda = ""; filas.push(fila); fila = [];
+    } else celda += c;
+  }
+  if (celda !== "" || fila.length){ fila.push(celda); filas.push(fila); }
+  return filas.filter(f => f.some(x => String(x).trim() !== ""));
+}
+
+// UTF-8 si es válido; si no, Windows-1252 (CSV "común" de Excel).
+async function textoDeArchivo(file){
+  const buf = await file.arrayBuffer();
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); }
+  catch { return new TextDecoder("windows-1252").decode(buf); }
+}
+
+function normDoc(v){
+  v = String(v ?? "").trim();
+  if (/^\d+[.,]0+$/.test(v)) v = v.replace(/[.,]0+$/, "");   // 12345678.0 -> 12345678
+  return v.replace(/[.\s-]/g, "");
+}
+function normVive(v){
+  const t = sinAcentos(v).trim().toUpperCase();
+  if (!t) return "";
+  if (["SI","S","VIVE","VIVO","VIVA","1","TRUE"].includes(t)) return "SI";
+  if (["NO","N","FALLECIDO","FALLECIDA","MUERTO","MUERTA","0","FALSE"].includes(t)) return "NO";
+  if (t.includes("SABE") || t === "NS" || t === "NS/NC") return "NO SABE";
+  return null;   // valor no reconocido
+}
+
+$("csvBtn").onclick = () => $("csvFile").click();
+$("csvFile").onchange = async e => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  const st = $("csvStatus"), btn = $("csvBtn");
+  const msg = (t, k = "") => { st.textContent = t; st.className = "status " + k; };
+  btn.disabled = true;
+  try {
+    msg("Leyendo archivo…");
+    const filas = leerCSV(await textoDeArchivo(file));
+    if (filas.length < 2) throw new Error("El archivo está vacío o no tiene filas de datos.");
+
+    const idx = {};
+    filas[0].forEach((h, i) => {
+      const n = normHeader(h);
+      for (const k in ALIAS) if (idx[k] === undefined && ALIAS[k].includes(n)) idx[k] = i;
+    });
+    if (idx.numDoc === undefined) throw new Error("No encontré la columna del documento (numDoc o DNI).");
+    const nuevos = CAMPOS_NUEVOS.filter(k => idx[k] !== undefined);
+    if (!nuevos.length) throw new Error("No encontré ninguna columna nueva (apodo, padre, madre, padreVive, madreVive).");
+
+    // Solo filas con documento y al menos un dato nuevo.
+    const tareas = [], invalidas = [];
+    filas.slice(1).forEach((f, n) => {
+      const numDoc = normDoc(f[idx.numDoc]);
+      const campos = {};
+      for (const k of nuevos){
+        let v = String(f[idx[k]] ?? "").trim();
+        if (!v) continue;
+        if (k === "padreVive" || k === "madreVive"){
+          v = normVive(v);
+          if (v === null){ invalidas.push(`fila ${n + 2} (${k})`); continue; }
+        } else v = v.toUpperCase();
+        campos[k] = v;
+      }
+      if (numDoc && Object.keys(campos).length){
+        tareas.push({ numDoc, campos, tipoDoc: idx.tipoDoc !== undefined ? String(f[idx.tipoDoc] ?? "").trim() : "" });
+      }
+    });
+    if (!tareas.length) throw new Error("No hay filas con datos nuevos para importar.");
+    if (!confirm(`Se intentarán actualizar ${tareas.length} personas con: ${nuevos.join(", ")}.\nCada una usa 1 lectura y 1 escritura de Firestore.\n\n¿Continuar?`)){
+      msg("Importación cancelada."); return;
+    }
+
+    // Busca cada persona por documento (8 consultas en paralelo).
+    const noEnc = [], repetidas = [], aplicar = [], cola = tareas.slice();
+    let hechos = 0;
+    const worker = async () => {
+      while (cola.length){
+        const t = cola.shift();
+        const s = await getDocs(query(collection(db, COLECCION), where("numDoc", "==", t.numDoc), limit(5)));
+        let docs = s.docs;
+        if (t.tipoDoc) docs = docs.filter(d => String(d.data().tipoDoc).toLowerCase() === t.tipoDoc.toLowerCase());
+        if (docs.length === 1) aplicar.push({ ref: docs[0].ref, campos: t.campos });
+        else if (docs.length === 0) noEnc.push(t.numDoc);
+        else repetidas.push(t.numDoc);
+        if (++hechos % 25 === 0) msg(`Buscando personas… ${hechos}/${tareas.length}`);
+      }
+    };
+    await Promise.all(Array.from({ length: 8 }, worker));
+
+    // Escribe en lotes; update() solo cambia los campos indicados.
+    for (let i = 0; i < aplicar.length; i += 400){
+      const lote = writeBatch(db);
+      aplicar.slice(i, i + 400).forEach(a => lote.update(a.ref, a.campos));
+      msg(`Guardando… ${Math.min(i + 400, aplicar.length)}/${aplicar.length}`);
+      await lote.commit();
+    }
+
+    const lista = a => a.slice(0, 15).join(", ") + (a.length > 15 ? "…" : "");
+    let r = `Listo: ${aplicar.length} personas actualizadas.`;
+    if (noEnc.length)     r += `\nNo encontradas (${noEnc.length}): ${lista(noEnc)}`;
+    if (repetidas.length) r += `\nDocumento repetido, no se tocaron (${repetidas.length}): ${lista(repetidas)}`;
+    if (invalidas.length) r += `\nValores de "vive" no válidos, ignorados (${invalidas.length}): ${lista(invalidas)}`;
+    msg(r, "ok");
+  } catch (err) {
+    msg("Error: " + (err.message || err), "err");
+  } finally {
+    btn.disabled = false;
+  }
+};
 </script>
 </body>
 </html>
