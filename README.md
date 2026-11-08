@@ -17,8 +17,13 @@ La `apiKey` de Firebase en un sitio web **no es secreta**. Lo que protege los da
 ## Búsqueda
 
 - **Principal**: por DNI (prefijo).
-- **Avanzada**: apellido y/o nombre (al menos uno), más edad desde/hasta y localidad (desplegables) para acotar.
+- **Avanzada**: apellido, nombre y/o domicilio (al menos uno), más edad desde/hasta y localidad (desplegables) para acotar.
+- **Domicilio**: se busca por prefijo, así que hay que escribirlo como empieza en la base (ej. `BELGRANO 123`). Si se combina con apellido o nombre, en cambio, busca el texto en cualquier parte de la dirección.
 - Los datos se buscan en MAYÚSCULAS, tal cual están en la base.
+
+## Campos de familia
+
+Además de los datos básicos, cada persona tiene: `apodo`, `padre`, `madre`, `padreVive` y `madreVive` (SI / NO / NO SABE). Se completan desde la ficha (*Editar*).
 
 ## Listas de localidades y edad máxima
 
@@ -26,4 +31,4 @@ Se guardan en el documento `meta/filtros`. Se generan desde la propia app: en *B
 
 ## Índices de Firestore
 
-Al buscar con una localidad elegida, Firebase pide un índice compuesto (apellido + localidad, y nombre + localidad). La app muestra un botón **Crear índice**: confirmarlo y esperar 1–2 minutos. Es un paso único.
+Al buscar con una localidad elegida, Firebase pide un índice compuesto (apellido + localidad, nombre + localidad y domicilio + localidad). La app muestra un botón **Crear índice**: confirmarlo y esperar 1–2 minutos. Es un paso único.
