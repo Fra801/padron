@@ -25,9 +25,13 @@ La `apiKey` de Firebase en un sitio web **no es secreta**. Lo que protege los da
 
 Además de los datos básicos, cada persona tiene `telefono` y: `apodo`, `apellidoPadre`, `nombresPadre`, `apellidoMadre`, `nombresMadre`, `padreVive` y `madreVive` (SI / NO), y opcionalmente `ffall` (fecha de fallecimiento, dd/mm/aaaa). Los campos antiguos `padre` y `madre` (nombre completo en un solo campo) se conservan y se muestran como "dato anterior" solo si tienen valor. Se completan desde la ficha (*Editar*). La fecha de fallecimiento solo se muestra en la ficha si existe; al editar, el campo siempre aparece.
 
-## Listas de localidades y edad máxima
+## Listas desplegables
 
-Se guardan en el documento `meta/filtros`. Se generan desde la propia app: en *Búsqueda avanzada*, tocar **Generar ahora** (o **Actualizar listas** cuando se agreguen localidades nuevas). Cuesta aproximadamente una lectura por localidad distinta, no por persona.
+El formulario (alta y edición) ofrece desplegables de **tipo de documento, localidad, departamento y provincia**, con los valores que ya existen en la base. Las búsquedas usan la misma lista de localidades y la edad máxima.
+
+Se guardan en el documento `meta/filtros` (`edadMax`, `localidades`, `departamentos`, `provincias`, `tiposDoc`) y se generan desde la propia app: la primera vez que faltan se arman solas, y después, en *Búsqueda avanzada*, tocar **Actualizar listas** cuando aparezcan valores nuevos en la base. Cuesta aproximadamente una lectura por valor distinto, no por persona.
+
+Si una persona ya tiene un valor que no figura en la lista, la ficha lo conserva al editar. En un registro nuevo hay que elegir el tipo de documento.
 
 ## Índices de Firestore
 
