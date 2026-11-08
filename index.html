@@ -80,8 +80,8 @@
   .chip.saved{background:#e3f6ea;color:var(--ok)}
   .data{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px}
   .data .full{grid-column:1/-1}
-  .data .v{font-size:15px;word-break:break-word}
-  .data .v.empty{color:#b6c0cd;font-style:italic}
+  .data .v{font-size:15px;word-break:break-word;min-height:1.3em}
+  .data .v.empty{color:#b6c0cd;font-style:italic;padding:0;text-align:left;font-size:15px}
   .data label{display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--soft);margin-bottom:3px}
   .actions{display:flex;gap:8px;margin-top:20px}
   .actions .btn{flex:1}
@@ -201,8 +201,8 @@ const firebaseConfig = {
 
 const COLECCION = "personas";
 const TIPOS_DOC = ["DNI","CUIT","CUIL","LC","LE","Pasaporte","Otro"];
-const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","telefono","ffall","apodo","padre","madre","padreVive","madreVive","obs"];
-const CAMPOS_MAYUS = ["apellido","nombre","localidad","depto","provincia","domicilio","profesion","apodo","padre","madre"];
+const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","telefono","ffall","apodo","apellidoPadre","nombresPadre","apellidoMadre","nombresMadre","padre","madre","padreVive","madreVive","obs"];
+const CAMPOS_MAYUS = ["apellido","nombre","localidad","depto","provincia","domicilio","profesion","apodo","apellidoPadre","nombresPadre","apellidoMadre","nombresMadre","padre","madre"];
 const OPC_VIVE = ["SI","NO"];
 
 const app = initializeApp(firebaseConfig);
@@ -432,7 +432,8 @@ async function abrirRegistro(id){
 $("newBtn").onclick = () => {
   actual = { id: null, apellido:"", nombre:"", tipoDoc:"DNI", numDoc:"", fnac:"", edad:"",
              domicilio:"", localidad:"", depto:"", provincia:"", profesion:"", telefono:"", ffall:"",
-             apodo:"", padre:"", madre:"", padreVive:"", madreVive:"", obs:"" };
+             apodo:"", apellidoPadre:"", nombresPadre:"", apellidoMadre:"", nombresMadre:"",
+             padre:"", madre:"", padreVive:"", madreVive:"", obs:"" };
   renderFicha(true);
   $("fichaCard").scrollIntoView({ behavior: "smooth", block: "start" });
 };
@@ -453,7 +454,7 @@ function campo(key, label, editando, opts = {}){
       OPC_VIVE.map(t => `<option ${actual[key] === t ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
   }
   if (opts.area) return `<div class="${cls}"><label>${label}</label><textarea rows="2" data-key="${key}">${esc(actual[key])}</textarea></div>`;
-  return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(actual[key])}"${key === "telefono" ? ' inputmode="tel"' : ""}></div>`;
+  return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(actual[key])}"${key === "telefono" ? ' inputmode="tel"' : ""}${(key === "fnac" || key === "ffall") ? ' placeholder="dd/mm/aaaa"' : ""}></div>`;
 }
 
 function renderFicha(editando){
@@ -476,7 +477,7 @@ function renderFicha(editando){
       ${campo("nombre","Nombre/s",editando)}
       ${campo("tipoDoc","Tipo de doc.",editando)}
       ${campo("numDoc","N° de doc.",editando)}
-      ${campo("fnac","Fec. de nac. (dd/mm/aaaa)",editando)}
+      ${campo("fnac","Fec. de nac.",editando)}
       ${campo("edad","Edad",editando)}
       ${campo("domicilio","Domicilio",editando)}
       ${campo("localidad","Localidad",editando)}
@@ -484,12 +485,15 @@ function renderFicha(editando){
       ${campo("provincia","Provincia",editando)}
       ${campo("profesion","Profesión",editando)}
       ${campo("telefono","Teléfono",editando)}
-      ${campo("padre","Padre",editando)}
-      ${campo("madre","Madre",editando)}
+      ${campo("apellidoPadre","Apellido/s del padre",editando)}
+      ${campo("nombresPadre","Nombre/s del padre",editando)}
+      ${campo("apellidoMadre","Apellido/s de la madre",editando)}
+      ${campo("nombresMadre","Nombre/s de la madre",editando)}
       ${campo("padreVive","¿Vive el padre?",editando)}
       ${campo("madreVive","¿Vive la madre?",editando)}
+      ${(actual.padre || actual.madre) ? campo("padre","Padre (dato anterior)",editando) + campo("madre","Madre (dato anterior)",editando) : ""}
       ${campo("apodo","Apodo",editando)}
-      ${campo("ffall","Fec. de fallecimiento (dd/mm/aaaa)",editando)}
+      ${campo("ffall","Fec. de fallec.",editando)}
       ${campo("obs","Observaciones",editando,{area:true})}
     </div>
     <div class="actions">

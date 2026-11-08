@@ -23,7 +23,7 @@ La `apiKey` de Firebase en un sitio web **no es secreta**. Lo que protege los da
 
 ## Campos de familia
 
-Además de los datos básicos, cada persona tiene `telefono` y: `apodo`, `padre`, `madre`, `padreVive` y `madreVive` (SI / NO), y opcionalmente `ffall` (fecha de fallecimiento, dd/mm/aaaa). Se completan desde la ficha (*Editar*). La fecha de fallecimiento solo se muestra en la ficha si existe; al editar, el campo siempre aparece.
+Además de los datos básicos, cada persona tiene `telefono` y: `apodo`, `apellidoPadre`, `nombresPadre`, `apellidoMadre`, `nombresMadre`, `padreVive` y `madreVive` (SI / NO), y opcionalmente `ffall` (fecha de fallecimiento, dd/mm/aaaa). Los campos antiguos `padre` y `madre` (nombre completo en un solo campo) se conservan y se muestran como "dato anterior" solo si tienen valor. Se completan desde la ficha (*Editar*). La fecha de fallecimiento solo se muestra en la ficha si existe; al editar, el campo siempre aparece.
 
 ## Listas de localidades y edad máxima
 
