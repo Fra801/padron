@@ -201,7 +201,7 @@ const firebaseConfig = {
 
 const COLECCION = "personas";
 const TIPOS_DOC = ["DNI","CUIT","CUIL","LC","LE","Pasaporte","Otro"];
-const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","telefono","apodo","padre","madre","padreVive","madreVive","obs"];
+const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","telefono","ffall","apodo","padre","madre","padreVive","madreVive","obs"];
 const CAMPOS_MAYUS = ["apellido","nombre","localidad","depto","provincia","domicilio","profesion","apodo","padre","madre"];
 const OPC_VIVE = ["SI","NO"];
 
@@ -431,7 +431,7 @@ async function abrirRegistro(id){
 
 $("newBtn").onclick = () => {
   actual = { id: null, apellido:"", nombre:"", tipoDoc:"DNI", numDoc:"", fnac:"", edad:"",
-             domicilio:"", localidad:"", depto:"", provincia:"", profesion:"", telefono:"",
+             domicilio:"", localidad:"", depto:"", provincia:"", profesion:"", telefono:"", ffall:"",
              apodo:"", padre:"", madre:"", padreVive:"", madreVive:"", obs:"" };
   renderFicha(true);
   $("fichaCard").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -441,6 +441,7 @@ function campo(key, label, editando, opts = {}){
   const cls = opts.full ? "f full" : "f";
   if (!editando){
     const v = actual[key];
+    if (key === "ffall" && v === "") return "";   // la fecha de fallecimiento solo se muestra si existe
     return `<div class="${opts.full ? "full" : ""}"><label>${label}</label><div class="v ${v !== "" ? "" : "empty"}">${v !== "" ? esc(v) : "Sin dato"}</div></div>`;
   }
   if (key === "tipoDoc"){
@@ -488,6 +489,7 @@ function renderFicha(editando){
       ${campo("padreVive","¿Vive el padre?",editando)}
       ${campo("madreVive","¿Vive la madre?",editando)}
       ${campo("apodo","Apodo",editando)}
+      ${campo("ffall","Fec. de fallecimiento (dd/mm/aaaa)",editando)}
       ${campo("obs","Observaciones",editando,{area:true})}
     </div>
     <div class="actions">
