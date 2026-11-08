@@ -201,9 +201,9 @@ const firebaseConfig = {
 
 const COLECCION = "personas";
 const TIPOS_DOC = ["DNI","CUIT","CUIL","LC","LE","Pasaporte","Otro"];
-const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","apodo","padre","madre","padreVive","madreVive","obs"];
+const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","telefono","apodo","padre","madre","padreVive","madreVive","obs"];
 const CAMPOS_MAYUS = ["apellido","nombre","localidad","depto","provincia","domicilio","profesion","apodo","padre","madre"];
-const OPC_VIVE = ["SI","NO","NO SABE"];
+const OPC_VIVE = ["SI","NO"];
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -431,7 +431,7 @@ async function abrirRegistro(id){
 
 $("newBtn").onclick = () => {
   actual = { id: null, apellido:"", nombre:"", tipoDoc:"DNI", numDoc:"", fnac:"", edad:"",
-             domicilio:"", localidad:"", depto:"", provincia:"", profesion:"",
+             domicilio:"", localidad:"", depto:"", provincia:"", profesion:"", telefono:"",
              apodo:"", padre:"", madre:"", padreVive:"", madreVive:"", obs:"" };
   renderFicha(true);
   $("fichaCard").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -452,7 +452,7 @@ function campo(key, label, editando, opts = {}){
       OPC_VIVE.map(t => `<option ${actual[key] === t ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
   }
   if (opts.area) return `<div class="${cls}"><label>${label}</label><textarea rows="2" data-key="${key}">${esc(actual[key])}</textarea></div>`;
-  return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(actual[key])}"></div>`;
+  return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(actual[key])}"${key === "telefono" ? ' inputmode="tel"' : ""}></div>`;
 }
 
 function renderFicha(editando){
@@ -482,11 +482,12 @@ function renderFicha(editando){
       ${campo("depto","Departamento",editando)}
       ${campo("provincia","Provincia",editando)}
       ${campo("profesion","Profesión",editando)}
-      ${campo("apodo","Apodo",editando)}
+      ${campo("telefono","Teléfono",editando)}
       ${campo("padre","Padre",editando)}
       ${campo("madre","Madre",editando)}
       ${campo("padreVive","¿Vive el padre?",editando)}
       ${campo("madreVive","¿Vive la madre?",editando)}
+      ${campo("apodo","Apodo",editando)}
       ${campo("obs","Observaciones",editando,{area:true})}
     </div>
     <div class="actions">

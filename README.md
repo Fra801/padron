@@ -23,7 +23,7 @@ La `apiKey` de Firebase en un sitio web **no es secreta**. Lo que protege los da
 
 ## Campos de familia
 
-Además de los datos básicos, cada persona tiene: `apodo`, `padre`, `madre`, `padreVive` y `madreVive` (SI / NO / NO SABE). Se completan desde la ficha (*Editar*).
+Además de los datos básicos, cada persona tiene `telefono` y: `apodo`, `padre`, `madre`, `padreVive` y `madreVive` (SI / NO). Se completan desde la ficha (*Editar*).
 
 ## Listas de localidades y edad máxima
 
