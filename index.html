@@ -203,9 +203,8 @@ const firebaseConfig = {
 
 // Colección nueva: el ID de cada documento es el número de documento.
 const COLECCION = "padron";
-// Las listas de los desplegables se siguen armando con la colección vieja hasta que termine la migración
-// (así no quedan incompletas). Cuando la migración esté completa, cambiá esto a "padron".
-const COLECCION_LISTAS = "personas";
+// Las listas de los desplegables (localidades, etc.) se arman con esta misma colección.
+const COLECCION_LISTAS = "padron";
 // Tipos de documento que se ofrecen hasta que se generen las listas a partir de la base (meta/filtros).
 const TIPOS_DOC = ["DNI","DNI-EA","DNI-EB","DNI-EC","DNI-ED","DNI-EE","DNID","DNIT"];
 // Valores para los desplegables del formulario: salen de lo que ya existe en la base.
