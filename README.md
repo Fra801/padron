@@ -17,17 +17,23 @@ La `apiKey` de Firebase en un sitio web **no es secreta**. Lo que protege los da
 ## Búsqueda
 
 - **Principal**: por DNI (prefijo).
-- **Avanzada**: apellido, nombre y/o domicilio (al menos uno), más edad desde/hasta y localidad (desplegables) para acotar.
-- **Domicilio**: se busca por prefijo, así que hay que escribirlo como empieza en la base (ej. `BELGRANO 123`). Si se combina con apellido o nombre, en cambio, busca el texto en cualquier parte de la dirección.
+- **Avanzada**: apellido, nombre y/o calle (al menos uno), más edad desde/hasta y localidad (desplegables) para acotar.
+- **Calle**: se busca por prefijo, así que hay que escribirla como empieza en la base (ej. `BELGRANO`). Si se combina con apellido o nombre, en cambio, busca el texto en cualquier parte del nombre de la calle.
 - Los datos se buscan en MAYÚSCULAS, tal cual están en la base.
 
-## Campos de familia
+## Datos y colección
 
-Además de los datos básicos, cada persona tiene `telefono` y: `apodo`, `apellidoPadre`, `nombresPadre`, `apellidoMadre`, `nombresMadre`, `padreVive` y `madreVive` (SI / NO), y opcionalmente `ffall` (fecha de fallecimiento, dd/mm/aaaa). Los campos antiguos `padre` y `madre` (nombre completo en un solo campo) se conservan y se muestran como "dato anterior" solo si tienen valor. Se completan desde la ficha (*Editar*). La fecha de fallecimiento solo se muestra en la ficha si existe; al editar, el campo siempre aparece.
+Los datos están en la colección `padron` y el ID de cada documento es el **número de documento** (si un número está repetido entre personas distintas, el ID es `número_tipo_sexo`). Se va cargando con `migrar.py` (19.000 registros por día en el plan gratis). Mientras no termine, la app solo ve lo que ya se cargó.
+
+Campos: apellido, nombre, sexo, apodo, tipoDoc, numDoc, fnac, ffall, edad, barrio, modulo, escalera, calle, domNum, piso, domDepto, localidad, depto, provincia, apellidoPadre, nombresPadre, padreVive, apellidoMadre, nombresMadre, madreVive, apellidoHijo1, nombresHijo1, apellidoHijo2, nombresHijo2, profesion, telefono, obs.
+
+## Ficha
+
+En la ficha **solo se muestran los campos que tienen datos** (y las secciones que tengan al menos uno). Al tocar *Editar* aparecen todos los campos para poder completarlos. Al crear un registro nuevo, el ID es el número de documento.
 
 ## Listas desplegables
 
-El formulario (alta y edición) ofrece desplegables de **tipo de documento, localidad, departamento y provincia**, con los valores que ya existen en la base. Las búsquedas usan la misma lista de localidades y la edad máxima.
+El formulario (alta y edición) ofrece desplegables de **tipo de documento, localidad, departamento y provincia**, con los valores que ya existen en la base. Las búsquedas usan la misma lista de localidades y la edad máxima. Por ahora las listas se arman con la colección vieja (`personas`, constante `COLECCION_LISTAS` en `index.html`); al terminar la migración, cambiarla a `padron`.
 
 Se guardan en el documento `meta/filtros` (`edadMax`, `localidades`, `departamentos`, `provincias`, `tiposDoc`) y se generan desde la propia app: la primera vez que faltan se arman solas, y después, en *Búsqueda avanzada*, tocar **Actualizar listas** cuando aparezcan valores nuevos en la base. Cuesta aproximadamente una lectura por valor distinto, no por persona.
 
@@ -35,4 +41,4 @@ Si una persona ya tiene un valor que no figura en la lista, la ficha lo conserva
 
 ## Índices de Firestore
 
-Al buscar con una localidad elegida, Firebase pide un índice compuesto (apellido + localidad, nombre + localidad y domicilio + localidad). La app muestra un botón **Crear índice**: confirmarlo y esperar 1–2 minutos. Es un paso único.
+Al buscar con una localidad elegida, Firebase pide un índice compuesto (apellido + localidad, nombre + localidad y calle + localidad). La app muestra un botón **Crear índice**: confirmarlo y esperar 1–2 minutos. Es un paso único.

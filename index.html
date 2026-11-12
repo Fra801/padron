@@ -80,6 +80,8 @@
   .chip.saved{background:#e3f6ea;color:var(--ok)}
   .data{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px}
   .data .full{grid-column:1/-1}
+  .data .sec{grid-column:1/-1;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--brand-d);border-bottom:1px solid var(--border);padding-bottom:4px;margin-top:6px}
+  .data .sec:first-child{margin-top:0}
   .data .v{font-size:15px;word-break:break-word;min-height:1.3em}
   .data .v.empty{color:#b6c0cd;font-style:italic;padding:0;text-align:left;font-size:15px}
   .data label{display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--soft);margin-bottom:3px}
@@ -146,12 +148,12 @@
       </button>
 
       <div class="adv" id="adv">
-        <p class="hint">Completá al menos <b>apellido</b>, <b>nombre</b> o <b>domicilio</b>. Edad y localidad sirven para acotar.</p>
+        <p class="hint">Completá al menos <b>apellido</b>, <b>nombre</b> o <b>calle</b>. Edad y localidad sirven para acotar.</p>
         <div class="grid2">
           <div class="f"><label>Apellido/s</label><input id="qApellido" autocomplete="off"></div>
           <div class="f"><label>Nombre/s</label><input id="qNombre" autocomplete="off"></div>
         </div>
-        <div class="f" style="margin-top:12px"><label>Domicilio (calle y número)</label><input id="qDom" autocomplete="off" placeholder="Escribí cómo empieza la dirección"></div>
+        <div class="f" style="margin-top:12px"><label>Calle</label><input id="qDom" autocomplete="off" placeholder="Escribí cómo empieza el nombre de la calle"></div>
         <div class="sep">Acotar resultados</div>
         <div class="grid3">
           <div class="f"><label>Edad desde</label><select id="qEdadMin"></select></div>
@@ -199,14 +201,37 @@ const firebaseConfig = {
 };
 /* ========================================================================================== */
 
-const COLECCION = "personas";
+// Colección nueva: el ID de cada documento es el número de documento.
+const COLECCION = "padron";
+// Las listas de los desplegables se siguen armando con la colección vieja hasta que termine la migración
+// (así no quedan incompletas). Cuando la migración esté completa, cambiá esto a "padron".
+const COLECCION_LISTAS = "personas";
 // Tipos de documento que se ofrecen hasta que se generen las listas a partir de la base (meta/filtros).
 const TIPOS_DOC = ["DNI","DNI-EA","DNI-EB","DNI-EC","DNI-ED","DNI-EE","DNID","DNIT"];
 // Valores para los desplegables del formulario: salen de lo que ya existe en la base.
-const LISTAS = { tipoDoc: TIPOS_DOC.slice(), localidad: [], depto: [], provincia: [] };
-const KEYS = ["apellido","nombre","tipoDoc","numDoc","fnac","edad","domicilio","localidad","depto","provincia","profesion","telefono","ffall","apodo","apellidoPadre","nombresPadre","apellidoMadre","nombresMadre","padre","madre","padreVive","madreVive","obs"];
-const CAMPOS_MAYUS = ["apellido","nombre","localidad","depto","provincia","domicilio","profesion","apodo","apellidoPadre","nombresPadre","apellidoMadre","nombresMadre","padre","madre"];
+// (Si una persona tiene un valor que no está en la lista, se conserva al editar.)
+const LISTAS = { tipoDoc: TIPOS_DOC.slice(), localidad: [], depto: [], provincia: [], sexo: ["M","F"] };
+const KEYS = ["apellido","nombre","sexo","apodo","tipoDoc","numDoc","fnac","ffall","edad",
+  "barrio","modulo","escalera","calle","domNum","piso","domDepto","localidad","depto","provincia",
+  "apellidoPadre","nombresPadre","padreVive","apellidoMadre","nombresMadre","madreVive",
+  "apellidoHijo1","nombresHijo1","apellidoHijo2","nombresHijo2","profesion","telefono","obs"];
+const CAMPOS_MAYUS = ["apellido","nombre","sexo","apodo","barrio","modulo","escalera","calle","domNum","piso","domDepto",
+  "localidad","depto","provincia","apellidoPadre","nombresPadre","apellidoMadre","nombresMadre",
+  "apellidoHijo1","nombresHijo1","apellidoHijo2","nombresHijo2","profesion"];
 const OPC_VIVE = ["SI","NO"];
+// Secciones de la ficha. En la vista solo se muestran los campos con datos; al editar aparecen todos.
+const SECCIONES = [
+  { t: "Datos personales", c: [["apellido","Apellido/s"],["nombre","Nombre/s"],["sexo","Sexo"],["apodo","Apodo"],
+      ["tipoDoc","Tipo de doc."],["numDoc","N° de doc."],["fnac","Fec. de nac."],["edad","Edad"],["ffall","Fec. de fallec."]] },
+  { t: "Domicilio", c: [["barrio","Barrio"],["modulo","Módulo"],["escalera","Escalera"],["calle","Calle"],
+      ["domNum","N° de domicilio"],["piso","Piso"],["domDepto","Dpto. del domicilio"],
+      ["localidad","Localidad"],["depto","Departamento"],["provincia","Provincia"]] },
+  { t: "Padre", c: [["apellidoPadre","Apellido/s"],["nombresPadre","Nombre/s"],["padreVive","¿Vive?"]] },
+  { t: "Madre", c: [["apellidoMadre","Apellido/s"],["nombresMadre","Nombre/s"],["madreVive","¿Vive?"]] },
+  { t: "Hijos", c: [["apellidoHijo1","Apellido/s hijo/a 1"],["nombresHijo1","Nombre/s hijo/a 1"],
+      ["apellidoHijo2","Apellido/s hijo/a 2"],["nombresHijo2","Nombre/s hijo/a 2"]] },
+  { t: "Otros datos", c: [["profesion","Profesión"],["telefono","Teléfono"],["obs","Observaciones",{full:true,area:true}]] },
+];
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -216,6 +241,12 @@ const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true })
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const up = s => String(s || "").trim().toUpperCase();
+const digitos = s => String(s || "").replace(/\D/g, "");
+const limpio = s => String(s || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+// Un campo cuenta como vacío si no tiene texto (la edad 0 es "sin dato", así se guardó en la migración).
+const vacio = (k, v) => v === "" || v == null || (k === "edad" && Number(v) === 0);
+// Domicilio corto para la lista de resultados: calle y número.
+const domCorto = r => [r.calle, r.domNum].filter(Boolean).join(" ");
 
 /* ---------- Login ---------- */
 $("loginBtn").onclick = async () => {
@@ -294,7 +325,7 @@ async function valoresDistintos(campo, msg, etiqueta){
   const out = [];
   let ultima = "";
   while (out.length < 5000){
-    const s = await getDocs(query(collection(db, COLECCION), where(campo, ">", ultima), orderBy(campo), limit(1)));
+    const s = await getDocs(query(collection(db, COLECCION_LISTAS), where(campo, ">", ultima), orderBy(campo), limit(1)));
     if (s.empty) break;
     ultima = s.docs[0].data()[campo];
     if (typeof ultima !== "string") break;
@@ -312,7 +343,7 @@ async function generarListas(){
   btn.disabled = true;
   try {
     msg.textContent = "Calculando edad máxima…";
-    const se = await getDocs(query(collection(db, COLECCION), where("edad", "<=", 120), orderBy("edad", "desc"), limit(1)));
+    const se = await getDocs(query(collection(db, COLECCION_LISTAS), where("edad", "<=", 120), orderBy("edad", "desc"), limit(1)));
     const edadMax = se.empty ? 100 : Number(se.docs[0].data().edad) || 100;
 
     const localidades   = await valoresDistintos("localidad", msg, "localidades");
@@ -380,19 +411,19 @@ async function buscarAvanzada(){
   const eMin = $("qEdadMin").value !== "" ? parseInt($("qEdadMin").value, 10) : -Infinity;
   const eMax = $("qEdadMax").value !== "" ? parseInt($("qEdadMax").value, 10) :  Infinity;
   $("advErr").textContent = "";
-  if (!ap && !no && !dom){ $("advErr").textContent = "Completá al menos el apellido, el nombre o el domicilio."; return; }
+  if (!ap && !no && !dom){ $("advErr").textContent = "Completá al menos el apellido, el nombre o la calle."; return; }
 
   mostrarCargando();
   const TOPE = 1000;
   try {
-    // Se consulta por el campo que haya cargado (apellido, luego nombre, luego domicilio); el resto se filtra acá.
-    // El domicilio se busca por prefijo: hay que escribirlo como empieza en la base (ej. "BELGRANO 123").
+    // Se consulta por el campo que haya cargado (apellido, luego nombre, luego calle); el resto se filtra acá.
+    // La calle se busca por prefijo: hay que escribirla como empieza en la base (ej. "BELGRANO").
     let rows = ap ? await porPrefijo("apellido", ap, TOPE, loc)
              : no ? await porPrefijo("nombre", no, TOPE, loc)
-             :      await porPrefijo("domicilio", dom, TOPE, loc);
+             :      await porPrefijo("calle", dom, TOPE, loc);
     const llegoAlTope = rows.length >= TOPE;
     if (ap && no) rows = rows.filter(r => up(r.nombre).startsWith(no));
-    if (dom && (ap || no)) rows = rows.filter(r => up(r.domicilio).includes(dom));
+    if (dom && (ap || no)) rows = rows.filter(r => up(r.calle).includes(dom));
     if (eMin !== -Infinity || eMax !== Infinity){
       rows = rows.filter(r => { const e = Number(r.edad); return !isNaN(e) && e >= eMin && e <= eMax; });
     }
@@ -434,7 +465,7 @@ function renderResultados(rows, { max, aviso }){
     <div class="item" data-id="${esc(r.id)}">
       <div>
         <div class="n">${esc([r.apellido, r.nombre].filter(Boolean).join(", ") || "(sin nombre)")}${r.apodo ? ` <span style="color:var(--soft);font-weight:500">“${esc(r.apodo)}”</span>` : ""}</div>
-        <div class="m">${esc([r.edad !== "" ? r.edad + " años" : "", r.domicilio, r.localidad].filter(Boolean).join(" · "))}</div>
+        <div class="m">${esc([!vacio("edad", r.edad) ? r.edad + " años" : "", domCorto(r), r.localidad].filter(Boolean).join(" · "))}</div>
       </div>
       <span class="tag">${esc([r.tipoDoc, r.numDoc].filter(Boolean).join(" "))}</span>
     </div>`).join("");
@@ -456,10 +487,8 @@ async function abrirRegistro(id){
 }
 
 $("newBtn").onclick = () => {
-  actual = { id: null, apellido:"", nombre:"", tipoDoc:"", numDoc:"", fnac:"", edad:"",
-             domicilio:"", localidad:"", depto:"", provincia:"", profesion:"", telefono:"", ffall:"",
-             apodo:"", apellidoPadre:"", nombresPadre:"", apellidoMadre:"", nombresMadre:"",
-             padre:"", madre:"", padreVive:"", madreVive:"", obs:"" };
+  actual = { id: null };
+  KEYS.forEach(k => actual[k] = "");
   renderFicha(true);
   $("fichaCard").scrollIntoView({ behavior: "smooth", block: "start" });
 };
@@ -468,9 +497,10 @@ function campo(key, label, editando, opts = {}){
   const cls = opts.full ? "f full" : "f";
   if (!editando){
     const v = actual[key];
-    if (key === "ffall" && v === "") return "";   // la fecha de fallecimiento solo se muestra si existe
-    return `<div class="${opts.full ? "full" : ""}"><label>${label}</label><div class="v ${v !== "" ? "" : "empty"}">${v !== "" ? esc(v) : "Sin dato"}</div></div>`;
+    if (vacio(key, v)) return "";   // los campos sin datos no se muestran
+    return `<div class="${opts.full ? "full" : ""}"><label>${label}</label><div class="v">${esc(v)}</div></div>`;
   }
+  const val = vacio(key, actual[key]) ? "" : actual[key];
   if (key in LISTAS){
     // Desplegable con los valores que ya existen en la base. Si la persona tiene un valor que no está en la lista, se conserva.
     const lista = LISTAS[key].slice(), cur = actual[key] ?? "";
@@ -482,8 +512,8 @@ function campo(key, label, editando, opts = {}){
     return `<div class="${cls}"><label>${label}</label><select data-key="${key}"><option value="">Sin dato</option>${
       OPC_VIVE.map(t => `<option ${actual[key] === t ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
   }
-  if (opts.area) return `<div class="${cls}"><label>${label}</label><textarea rows="2" data-key="${key}">${esc(actual[key])}</textarea></div>`;
-  return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(actual[key])}"${key === "telefono" ? ' inputmode="tel"' : ""}${(key === "fnac" || key === "ffall") ? ' placeholder="dd/mm/aaaa"' : ""}></div>`;
+  if (opts.area) return `<div class="${cls}"><label>${label}</label><textarea rows="2" data-key="${key}">${esc(val)}</textarea></div>`;
+  return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(val)}"${key === "telefono" ? ' inputmode="tel"' : ""}${(key === "fnac" || key === "ffall") ? ' placeholder="dd/mm/aaaa"' : ""}></div>`;
 }
 
 function renderFicha(editando){
@@ -502,28 +532,10 @@ function renderFicha(editando){
       <button class="close" id="cerrarFicha" title="Cerrar">×</button>
     </div>
     <div class="data">
-      ${campo("apellido","Apellido/s",editando)}
-      ${campo("nombre","Nombre/s",editando)}
-      ${campo("tipoDoc","Tipo de doc.",editando)}
-      ${campo("numDoc","N° de doc.",editando)}
-      ${campo("fnac","Fec. de nac.",editando)}
-      ${campo("edad","Edad",editando)}
-      ${campo("domicilio","Domicilio",editando)}
-      ${campo("localidad","Localidad",editando)}
-      ${campo("depto","Departamento",editando)}
-      ${campo("provincia","Provincia",editando)}
-      ${campo("profesion","Profesión",editando)}
-      ${campo("telefono","Teléfono",editando)}
-      ${campo("apellidoPadre","Apellido/s del padre",editando)}
-      ${campo("nombresPadre","Nombre/s del padre",editando)}
-      ${campo("apellidoMadre","Apellido/s de la madre",editando)}
-      ${campo("nombresMadre","Nombre/s de la madre",editando)}
-      ${campo("padreVive","¿Vive el padre?",editando)}
-      ${campo("madreVive","¿Vive la madre?",editando)}
-      ${(actual.padre || actual.madre) ? campo("padre","Padre (dato anterior)",editando) + campo("madre","Madre (dato anterior)",editando) : ""}
-      ${campo("apodo","Apodo",editando)}
-      ${campo("ffall","Fec. de fallec.",editando)}
-      ${campo("obs","Observaciones",editando,{area:true})}
+      ${SECCIONES.map(s => {
+        const html = s.c.map(([k, l, o]) => campo(k, l, editando, o || {})).join("");
+        return html ? `<div class="sec">${s.t}</div>${html}` : "";   // sección sin datos: no se muestra
+      }).join("")}
     </div>
     <div class="actions">
       ${editando
@@ -584,11 +596,19 @@ async function guardar(){
       await abrirRegistro(actual.id);
       $("fstatus").textContent = "Registro actualizado."; $("fstatus").className = "status ok";
     } else {
-      const dup = (await porPrefijo("numDoc", data.numDoc, 50))
-        .find(r => String(r.numDoc) === data.numDoc && String(r.tipoDoc).toLowerCase() === data.tipoDoc.toLowerCase());
-      if (dup){ $("guardarBtn").disabled = false; return setSt("Ya existe un registro con ese documento.", "err"); }
-      const ref = await addDoc(collection(db, COLECCION), data);
-      await abrirRegistro(ref.id);
+      // El ID del documento es el número de documento (solo dígitos), igual que en la migración.
+      // Si ya existe otra persona con ese número pero distinto tipo de doc., se usa número_tipo_sexo.
+      const num = digitos(data.numDoc);
+      if (!num){ $("guardarBtn").disabled = false; return setSt("El número de documento debe tener dígitos.", "err"); }
+      let id = num;
+      const previo = await getDoc(doc(db, COLECCION, id));
+      if (previo.exists()){
+        if (up(previo.data().tipoDoc) === up(data.tipoDoc)){ $("guardarBtn").disabled = false; return setSt("Ya existe un registro con ese documento.", "err"); }
+        id = `${num}_${limpio(data.tipoDoc) || "X"}_${limpio(data.sexo) || "X"}`;
+        if ((await getDoc(doc(db, COLECCION, id))).exists()){ $("guardarBtn").disabled = false; return setSt("Ya existe un registro con ese documento.", "err"); }
+      }
+      await setDoc(doc(db, COLECCION, id), data);
+      await abrirRegistro(id);
       $("fstatus").textContent = "Registro creado."; $("fstatus").className = "status ok";
     }
   } catch (e) {

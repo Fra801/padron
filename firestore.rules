@@ -11,6 +11,11 @@ service cloud.firestore {
         ];
     }
 
+    match /padron/{id} {
+      allow read, write: if autorizado();
+    }
+
+    // Colección vieja: se mantiene hasta que termine la migración (se usa para armar las listas).
     match /personas/{id} {
       allow read, write: if autorizado();
     }
