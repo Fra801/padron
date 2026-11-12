@@ -384,7 +384,16 @@ $("clearAdv").onclick = () => {
 function mapDoc(d){
   const x = d.data(), r = { id: d.id };
   KEYS.forEach(k => r[k] = x[k] ?? "");
+  // Si la edad no vino en la base (quedó en 0 por la fórmula del Excel), se calcula con la fecha de nacimiento.
+  if (vacio("edad", r.edad)){ const e = edadDe(r); r.edad = e == null ? "" : e; }
   return r;
+}
+function edadDe(r){
+  const f = String(r.fnac || "").trim();
+  const c = calcularEdad(f);                       // fecha completa dd/mm/aaaa
+  if (c !== "") return Number(c);
+  const y = f.match(/^(\d{4})$/);                  // solo el año (ej. "1974"): edad aproximada
+  return y ? new Date().getFullYear() - Number(y[1]) : null;
 }
 async function porPrefijo(campo, prefijo, max, localidad){
   const filtrosLoc = localidad ? [where("localidad", "==", localidad)] : [];
@@ -425,7 +434,8 @@ async function buscarAvanzada(){
     if (ap && no) rows = rows.filter(r => up(r.nombre).startsWith(no));
     if (dom && (ap || no)) rows = rows.filter(r => up(r.calle).includes(dom));
     if (eMin !== -Infinity || eMax !== Infinity){
-      rows = rows.filter(r => { const e = Number(r.edad); return !isNaN(e) && e >= eMin && e <= eMax; });
+      // Si no se pudo saber la edad (sin fecha de nacimiento), no se descarta a la persona.
+      rows = rows.filter(r => { if (r.edad === "") return true; const e = Number(r.edad); return !isNaN(e) && e >= eMin && e <= eMax; });
     }
     renderResultados(rows, { max: 100, aviso: llegoAlTope ? "Hay muchas coincidencias: afiná la búsqueda para ver todas." : "" });
   } catch (e) { renderError(e); }
