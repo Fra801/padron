@@ -148,16 +148,17 @@
       </button>
 
       <div class="adv" id="adv">
-        <p class="hint">Completá al menos <b>apellido</b>, <b>nombre</b> o <b>calle</b>. Edad y localidad sirven para acotar.</p>
+        <p class="hint">Completá al menos <b>apellido</b>, <b>nombre</b> o <b>calle</b>. Edad, sexo y localidad sirven para acotar.</p>
         <div class="grid2">
           <div class="f"><label>Apellido/s</label><input id="qApellido" autocomplete="off"></div>
           <div class="f"><label>Nombre/s</label><input id="qNombre" autocomplete="off"></div>
         </div>
         <div class="f" style="margin-top:12px"><label>Calle</label><input id="qDom" autocomplete="off" placeholder="Escribí cómo empieza el nombre de la calle"></div>
         <div class="sep">Acotar resultados</div>
-        <div class="grid3">
+        <div class="grid2">
           <div class="f"><label>Edad desde</label><select id="qEdadMin"></select></div>
           <div class="f"><label>Edad hasta</label><select id="qEdadMax"></select></div>
+          <div class="f"><label>Sexo</label><select id="qSexo"><option value="">Todos</option><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
           <div class="f"><label>Localidad</label><select id="qLoc"><option value="">Todas</option></select></div>
         </div>
         <p class="hint" style="margin-top:10px"><span id="filtrosMsg"></span> <button type="button" class="linkbtn" id="filtrosBtn">Actualizar listas</button></p>
@@ -312,6 +313,7 @@ function aplicarDefectos(){
   $("qEdadMin").value = String(EDAD_MIN_DEFECTO);
   $("qEdadMax").value = String(edadMaxBase);
   $("qLoc").value = "";
+  $("qSexo").value = "";
 }
 let autoListasIntentado = false;
 
@@ -450,6 +452,7 @@ async function buscarDNI(){
 async function buscarAvanzada(){
   const ap = up($("qApellido").value), no = up($("qNombre").value), dom = up($("qDom").value);
   const loc = $("qLoc").value;
+  const sexo = $("qSexo").value;
   const eMin = $("qEdadMin").value !== "" ? parseInt($("qEdadMin").value, 10) : -Infinity;
   const eMax = $("qEdadMax").value !== "" ? parseInt($("qEdadMax").value, 10) :  Infinity;
   $("advErr").textContent = "";
@@ -466,6 +469,7 @@ async function buscarAvanzada(){
     const llegoAlTope = rows.length >= TOPE;
     if (ap && no) rows = rows.filter(r => up(r.nombre).startsWith(no));
     if (dom && (ap || no)) rows = rows.filter(r => up(r.calle).includes(dom));
+    if (sexo) rows = rows.filter(r => up(r.sexo) === sexo);
     if (eMin !== -Infinity || eMax !== Infinity){
       // Si no se pudo saber la edad (sin fecha de nacimiento), no se descarta a la persona.
       rows = rows.filter(r => { if (r.edad === "") return true; const e = Number(r.edad); return !isNaN(e) && e >= eMin && e <= eMax; });
@@ -477,7 +481,7 @@ async function buscarAvanzada(){
 $("dniBtn").onclick = buscarDNI;
 $("dni").addEventListener("keydown", e => { if (e.key === "Enter") buscarDNI(); });
 $("advBtn").onclick = buscarAvanzada;
-["qApellido","qNombre","qDom","qEdadMin","qEdadMax","qLoc"].forEach(i =>
+["qApellido","qNombre","qDom","qEdadMin","qEdadMax","qSexo","qLoc"].forEach(i =>
   $(i).addEventListener("keydown", e => { if (e.key === "Enter") buscarAvanzada(); }));
 
 /* ---------- Render resultados ---------- */
