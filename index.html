@@ -148,16 +148,17 @@
       </button>
 
       <div class="adv" id="adv">
-        <p class="hint">Completá al menos <b>apellido</b>, <b>nombre</b> o <b>calle</b>. Edad y localidad sirven para acotar.</p>
+        <p class="hint">Completá al menos <b>apellido</b>, <b>nombre</b> o <b>calle</b>. Edad, sexo y localidad sirven para acotar.</p>
         <div class="grid2">
           <div class="f"><label>Apellido/s</label><input id="qApellido" autocomplete="off"></div>
           <div class="f"><label>Nombre/s</label><input id="qNombre" autocomplete="off"></div>
         </div>
         <div class="f" style="margin-top:12px"><label>Calle</label><input id="qDom" autocomplete="off" placeholder="Escribí cómo empieza el nombre de la calle"></div>
         <div class="sep">Acotar resultados</div>
-        <div class="grid3">
+        <div class="grid2">
           <div class="f"><label>Edad desde</label><select id="qEdadMin"></select></div>
           <div class="f"><label>Edad hasta</label><select id="qEdadMax"></select></div>
+          <div class="f"><label>Sexo</label><select id="qSexo"><option value="">Todos</option><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
           <div class="f"><label>Localidad</label><select id="qLoc"><option value="">Todas</option></select></div>
         </div>
         <p class="hint" style="margin-top:10px"><span id="filtrosMsg"></span> <button type="button" class="linkbtn" id="filtrosBtn">Actualizar listas</button></p>
@@ -274,19 +275,50 @@ let edadMaxBase = 100;
 
 function llenarEdades(){
   const opts = n => Array.from({ length: n + 1 }, (_, i) => `<option value="${i}">${i}</option>`).join("");
+  // Conserva lo que el usuario ya eligió (si sigue dentro del rango); si no, usa los valores por defecto.
+  const minAntes = $("qEdadMin").value, maxAntes = $("qEdadMax").value;
+  const habiaOpciones = $("qEdadMin").options.length > 0;
+  const maxEraTope = maxAntes === "" || Number(maxAntes) === $("qEdadMax").options.length - 1;
   $("qEdadMin").innerHTML = opts(edadMaxBase);
   $("qEdadMax").innerHTML = opts(edadMaxBase);
-  aplicarDefectos();
+  if (!habiaOpciones){ aplicarDefectos(); return; }
+  $("qEdadMin").value = String(Math.min(Number(minAntes), edadMaxBase));
+  $("qEdadMax").value = String(maxEraTope ? edadMaxBase : Math.min(Number(maxAntes), edadMaxBase));
+}
+function fijarEdadMax(n){
+  n = Number(n);
+  if (!n || n === edadMaxBase) return;
+  edadMaxBase = n;
+  llenarEdades();
+}
+
+/* Edad máxima real del padrón: 1 lectura (el registro con mayor edad, ignorando valores > 120). */
+async function edadMaximaPadron(){
+  const se = await getDocs(query(collection(db, COLECCION_LISTAS), where("edad", "<=", 120), orderBy("edad", "desc"), limit(1)));
+  return se.empty ? null : (Number(se.docs[0].data().edad) || null);
+}
+/* Se recalcula en cada inicio de sesión, así el desplegable siempre llega hasta la edad máxima
+   que hay en el padrón (aunque se hayan cargado registros nuevos después de generar las listas). */
+async function actualizarEdadMax(guardado){
+  try {
+    const n = await edadMaximaPadron();
+    if (!n) return;
+    fijarEdadMax(n);
+    if (guardado != null && n !== Number(guardado))
+      setDoc(doc(db, "meta", "filtros"), { edadMax: n }, { merge: true }).catch(() => {});
+    actualizarMsgFiltros();
+  } catch (e) { /* si falla, queda el valor guardado en meta/filtros */ }
 }
 function aplicarDefectos(){
   $("qEdadMin").value = String(EDAD_MIN_DEFECTO);
   $("qEdadMax").value = String(edadMaxBase);
   $("qLoc").value = "";
+  $("qSexo").value = "";
 }
 let autoListasIntentado = false;
 
 function aplicarListas(d){
-  if (d.edadMax){ edadMaxBase = Number(d.edadMax); llenarEdades(); }
+  if (d.edadMax) fijarEdadMax(d.edadMax);
   const locs = d.localidades || [];
   LISTAS.localidad = locs;
   LISTAS.depto = d.departamentos || [];
@@ -295,8 +327,12 @@ function aplicarListas(d){
   $("qLoc").innerHTML = '<option value="">Todas</option>' +
     locs.map(l => `<option value="${esc(l)}">${esc(String(l).trim())}</option>`).join("");
   $("qLoc").value = "";
-  $("filtrosMsg").textContent = `${locs.length} localidades · ${LISTAS.depto.length} departamentos · ${LISTAS.provincia.length} provincias · ${LISTAS.tipoDoc.length} tipos de doc. · edad máx. ${edadMaxBase}.`;
+  actualizarMsgFiltros();
   $("filtrosBtn").textContent = "Actualizar listas";
+}
+function actualizarMsgFiltros(){
+  if (!LISTAS.localidad.length) return;
+  $("filtrosMsg").textContent = `${LISTAS.localidad.length} localidades · ${LISTAS.depto.length} departamentos · ${LISTAS.provincia.length} provincias · ${LISTAS.tipoDoc.length} tipos de doc. · edad máx. ${edadMaxBase}.`;
 }
 
 async function cargarFiltros(){
@@ -305,6 +341,7 @@ async function cargarFiltros(){
     const s = await getDoc(doc(db, "meta", "filtros"));
     const d = s.exists() ? s.data() : null;
     if (d) aplicarListas(d);
+    actualizarEdadMax(d ? (d.edadMax ?? 0) : null);
     const completas = d && d.localidades && d.departamentos && d.provincias && d.tiposDoc;
     if (!completas){
       $("filtrosBtn").textContent = "Generar ahora";
@@ -342,8 +379,7 @@ async function generarListas(){
   btn.disabled = true;
   try {
     msg.textContent = "Calculando edad máxima…";
-    const se = await getDocs(query(collection(db, COLECCION_LISTAS), where("edad", "<=", 120), orderBy("edad", "desc"), limit(1)));
-    const edadMax = se.empty ? 100 : Number(se.docs[0].data().edad) || 100;
+    const edadMax = (await edadMaximaPadron()) || 100;
 
     const localidades   = await valoresDistintos("localidad", msg, "localidades");
     const departamentos = await valoresDistintos("depto", msg, "departamentos");
@@ -416,6 +452,7 @@ async function buscarDNI(){
 async function buscarAvanzada(){
   const ap = up($("qApellido").value), no = up($("qNombre").value), dom = up($("qDom").value);
   const loc = $("qLoc").value;
+  const sexo = $("qSexo").value;
   const eMin = $("qEdadMin").value !== "" ? parseInt($("qEdadMin").value, 10) : -Infinity;
   const eMax = $("qEdadMax").value !== "" ? parseInt($("qEdadMax").value, 10) :  Infinity;
   $("advErr").textContent = "";
@@ -432,6 +469,7 @@ async function buscarAvanzada(){
     const llegoAlTope = rows.length >= TOPE;
     if (ap && no) rows = rows.filter(r => up(r.nombre).startsWith(no));
     if (dom && (ap || no)) rows = rows.filter(r => up(r.calle).includes(dom));
+    if (sexo) rows = rows.filter(r => up(r.sexo) === sexo);
     if (eMin !== -Infinity || eMax !== Infinity){
       // Si no se pudo saber la edad (sin fecha de nacimiento), no se descarta a la persona.
       rows = rows.filter(r => { if (r.edad === "") return true; const e = Number(r.edad); return !isNaN(e) && e >= eMin && e <= eMax; });
@@ -443,7 +481,7 @@ async function buscarAvanzada(){
 $("dniBtn").onclick = buscarDNI;
 $("dni").addEventListener("keydown", e => { if (e.key === "Enter") buscarDNI(); });
 $("advBtn").onclick = buscarAvanzada;
-["qApellido","qNombre","qDom","qEdadMin","qEdadMax","qLoc"].forEach(i =>
+["qApellido","qNombre","qDom","qEdadMin","qEdadMax","qSexo","qLoc"].forEach(i =>
   $(i).addEventListener("keydown", e => { if (e.key === "Enter") buscarAvanzada(); }));
 
 /* ---------- Render resultados ---------- */

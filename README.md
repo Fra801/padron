@@ -17,7 +17,7 @@ La `apiKey` de Firebase en un sitio web **no es secreta**. Lo que protege los da
 ## Búsqueda
 
 - **Principal**: por DNI (prefijo).
-- **Avanzada**: apellido, nombre y/o calle (al menos uno), más edad desde/hasta y localidad (desplegables) para acotar.
+- **Avanzada**: apellido, nombre y/o calle (al menos uno), más edad desde/hasta, sexo (M/F) y localidad (desplegables) para acotar.
 - **Calle**: se busca por prefijo, así que hay que escribirla como empieza en la base (ej. `BELGRANO`). Si se combina con apellido o nombre, en cambio, busca el texto en cualquier parte del nombre de la calle.
 - Los datos se buscan en MAYÚSCULAS, tal cual están en la base.
 
