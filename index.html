@@ -269,56 +269,39 @@ function limpiarPantalla(){
   $("results").innerHTML = ""; $("ficha").innerHTML = "";
 }
 
-/* Filtros y listas: documento meta/filtros { edadMax, localidades, departamentos, provincias, tiposDoc } */
+/* Filtros y listas: documento meta/filtros { localidades, departamentos, provincias, tiposDoc } */
 const EDAD_MIN_DEFECTO = 18;
-let edadMaxBase = 100;
+const EDAD_MAX = 110;   // tope fijo de los desplegables de edad
 
+const opcionesEdad = (desde, hasta) =>
+  Array.from({ length: hasta - desde + 1 }, (_, i) => `<option value="${desde + i}">${desde + i}</option>`).join("");
+
+// "Edad desde": 0 a 109. "Edad hasta": arranca un año después de la mínima elegida y llega a 110.
 function llenarEdades(){
-  const opts = n => Array.from({ length: n + 1 }, (_, i) => `<option value="${i}">${i}</option>`).join("");
-  // Conserva lo que el usuario ya eligió (si sigue dentro del rango); si no, usa los valores por defecto.
-  const minAntes = $("qEdadMin").value, maxAntes = $("qEdadMax").value;
-  const habiaOpciones = $("qEdadMin").options.length > 0;
-  const maxEraTope = maxAntes === "" || Number(maxAntes) === $("qEdadMax").options.length - 1;
-  $("qEdadMin").innerHTML = opts(edadMaxBase);
-  $("qEdadMax").innerHTML = opts(edadMaxBase);
-  if (!habiaOpciones){ aplicarDefectos(); return; }
-  $("qEdadMin").value = String(Math.min(Number(minAntes), edadMaxBase));
-  $("qEdadMax").value = String(maxEraTope ? edadMaxBase : Math.min(Number(maxAntes), edadMaxBase));
+  if (!$("qEdadMin").options.length){
+    $("qEdadMin").innerHTML = opcionesEdad(0, EDAD_MAX - 1);
+    $("qEdadMin").value = String(EDAD_MIN_DEFECTO);
+  }
+  ajustarEdadMax();
 }
-function fijarEdadMax(n){
-  n = Number(n);
-  if (!n || n === edadMaxBase) return;
-  edadMaxBase = n;
-  llenarEdades();
+function ajustarEdadMax(){
+  const min = parseInt($("qEdadMin").value, 10) || 0;
+  const antes = parseInt($("qEdadMax").value, 10);
+  $("qEdadMax").innerHTML = opcionesEdad(min + 1, EDAD_MAX);
+  // Si lo que estaba elegido quedó por debajo del nuevo rango, se pasa al tope.
+  $("qEdadMax").value = String(!isNaN(antes) && antes > min ? antes : EDAD_MAX);
 }
-
-/* Edad máxima real del padrón: 1 lectura (el registro con mayor edad, ignorando valores > 120). */
-async function edadMaximaPadron(){
-  const se = await getDocs(query(collection(db, COLECCION_LISTAS), where("edad", "<=", 120), orderBy("edad", "desc"), limit(1)));
-  return se.empty ? null : (Number(se.docs[0].data().edad) || null);
-}
-/* Se recalcula en cada inicio de sesión, así el desplegable siempre llega hasta la edad máxima
-   que hay en el padrón (aunque se hayan cargado registros nuevos después de generar las listas). */
-async function actualizarEdadMax(guardado){
-  try {
-    const n = await edadMaximaPadron();
-    if (!n) return;
-    fijarEdadMax(n);
-    if (guardado != null && n !== Number(guardado))
-      setDoc(doc(db, "meta", "filtros"), { edadMax: n }, { merge: true }).catch(() => {});
-    actualizarMsgFiltros();
-  } catch (e) { /* si falla, queda el valor guardado en meta/filtros */ }
-}
+$("qEdadMin").addEventListener("change", ajustarEdadMax);
 function aplicarDefectos(){
   $("qEdadMin").value = String(EDAD_MIN_DEFECTO);
-  $("qEdadMax").value = String(edadMaxBase);
+  $("qEdadMax").value = "";
+  ajustarEdadMax();
   $("qLoc").value = "";
   $("qSexo").value = "";
 }
 let autoListasIntentado = false;
 
 function aplicarListas(d){
-  if (d.edadMax) fijarEdadMax(d.edadMax);
   const locs = d.localidades || [];
   LISTAS.localidad = locs;
   LISTAS.depto = d.departamentos || [];
@@ -332,7 +315,7 @@ function aplicarListas(d){
 }
 function actualizarMsgFiltros(){
   if (!LISTAS.localidad.length) return;
-  $("filtrosMsg").textContent = `${LISTAS.localidad.length} localidades · ${LISTAS.depto.length} departamentos · ${LISTAS.provincia.length} provincias · ${LISTAS.tipoDoc.length} tipos de doc. · edad máx. ${edadMaxBase}.`;
+  $("filtrosMsg").textContent = `${LISTAS.localidad.length} localidades · ${LISTAS.depto.length} departamentos · ${LISTAS.provincia.length} provincias · ${LISTAS.tipoDoc.length} tipos de doc..`;
 }
 
 async function cargarFiltros(){
@@ -341,7 +324,6 @@ async function cargarFiltros(){
     const s = await getDoc(doc(db, "meta", "filtros"));
     const d = s.exists() ? s.data() : null;
     if (d) aplicarListas(d);
-    actualizarEdadMax(d ? (d.edadMax ?? 0) : null);
     const completas = d && d.localidades && d.departamentos && d.provincias && d.tiposDoc;
     if (!completas){
       $("filtrosBtn").textContent = "Generar ahora";
@@ -372,22 +354,18 @@ async function valoresDistintos(campo, msg, etiqueta){
 }
 
 /* Genera meta/filtros directamente desde Firestore (sin planillas ni scripts externos):
-   - Edad máxima: 1 lectura (primer documento ordenado por edad descendente, ignorando > 120).
    - Localidades, departamentos, provincias y tipos de documento: los que ya existen en la base. */
 async function generarListas(){
   const btn = $("filtrosBtn"), msg = $("filtrosMsg");
   btn.disabled = true;
   try {
-    msg.textContent = "Calculando edad máxima…";
-    const edadMax = (await edadMaximaPadron()) || 100;
-
     const localidades   = await valoresDistintos("localidad", msg, "localidades");
     const departamentos = await valoresDistintos("depto", msg, "departamentos");
     const provincias    = await valoresDistintos("provincia", msg, "provincias");
     const tiposDoc      = await valoresDistintos("tipoDoc", msg, "tipos de documento");
 
     msg.textContent = "Guardando listas…";
-    const guardado = setDoc(doc(db, "meta", "filtros"), { edadMax, localidades, departamentos, provincias, tiposDoc });
+    const guardado = setDoc(doc(db, "meta", "filtros"), { localidades, departamentos, provincias, tiposDoc });
     const espera = new Promise((_, rej) => setTimeout(() => rej(new Error("tiempo agotado")), 25000));
     try { await Promise.race([guardado, espera]); }
     catch (err) {

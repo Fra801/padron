@@ -33,9 +33,9 @@ En la ficha **solo se muestran los campos que tienen datos** (y las secciones qu
 
 ## Listas desplegables
 
-El formulario (alta y edición) ofrece desplegables de **tipo de documento, localidad, departamento y provincia**, con los valores que ya existen en la base. Las búsquedas usan la misma lista de localidades y la edad máxima.
+El formulario (alta y edición) ofrece desplegables de **tipo de documento, localidad, departamento y provincia**, con los valores que ya existen en la base. Las búsquedas usan la misma lista de localidades. La edad va de 0 a 110, y "Edad hasta" arranca un año después de "Edad desde".
 
-Se guardan en el documento `meta/filtros` (`edadMax`, `localidades`, `departamentos`, `provincias`, `tiposDoc`) y se generan desde la propia app: la primera vez que faltan se arman solas, y después, en *Búsqueda avanzada*, tocar **Actualizar listas** cuando aparezcan valores nuevos en la base. Cuesta aproximadamente una lectura por valor distinto, no por persona.
+Se guardan en el documento `meta/filtros` (`localidades`, `departamentos`, `provincias`, `tiposDoc`) y se generan desde la propia app: la primera vez que faltan se arman solas, y después, en *Búsqueda avanzada*, tocar **Actualizar listas** cuando aparezcan valores nuevos en la base. Cuesta aproximadamente una lectura por valor distinto, no por persona.
 
 Si una persona ya tiene un valor que no figura en la lista, la ficha lo conserva al editar. En un registro nuevo hay que elegir el tipo de documento.
 
